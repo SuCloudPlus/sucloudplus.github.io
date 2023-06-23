@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>词表信息</title>
+    <script>
+        function handleResponse(data) {
+            var content = data.querySelector('/html/body/div[2]/div/div[3]/div[2]/span/a').textContent;
+            document.getElementById('contentCell').innerHTML = content;
+        }
+    </script>
+    <script src="https://kgithub.com/SuCloudPlus/sucloudplus.github.io/file-list/main/%E7%99%BE%E5%BA%A6%E7%99%BE%E7%A7%91%E8%AF%8D%E8%A1%A8%E6%96%87%E4%BB%B6"></script>
+</head>
+
+<body>
+    <table>
+        <tr>
+            <th>词表发布时间</th>
+            <th>获取链接（点击链接即可下载）</th>
+            <th>词表有效时间</th>
+        </tr>
+        <tr>
+            <td id="contentCell"></td>
+            <td><a href="词表链接">点击下载</a></td>
+            <td>2023-07-22</td>
+        </tr>
+    </table>
+</body>
+
+</html>
