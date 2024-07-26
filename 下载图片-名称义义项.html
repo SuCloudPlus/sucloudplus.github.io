@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>打开URL</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+    }
+    textarea {
+        width: 80%;
+        height: 200px;
+        margin: 20px auto;
+        padding: 10px;
+        resize: none;
+    }
+    button {
+        display: block;
+        margin: 0 auto;
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: #fff;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    button:hover {
+        background-color: #0056b3;
+    }
+</style>
+</head>
+<body>
+
+<h2>输入内容</h2>
+<textarea id="urlInput" placeholder="每行输入格式为：黄雀	卢伦常执导的刑侦电视剧"></textarea>
+<button onclick="processInput()">确认处理</button>
+
+<script>
+function processInput() {
+    const urlInput = document.getElementById('urlInput');
+    const lines = urlInput.value.split('\n').map(line => line.trim());
+
+    lines.forEach((line, index) => {
+        if (line !== '') {
+            setTimeout(() => {
+                const parts = line.split('\t');
+                if (parts.length === 2) {
+                    const keyword = parts[0].trim();
+                    const description = parts[1].trim();
+                    
+                    // 构建百度百科搜索链接
+                    const searchUrl = `https://baike.baidu.com/item/${encodeURIComponent(keyword)}`;
+                    
+                    // 访问百度百科搜索链接
+                    fetch(searchUrl)
+                        .then(response => response.text())
+                        .then(html => {
+                            // 查找跳转后的URL
+                            const redirectUrl = new DOMParser().parseFromString(html, 'text/html')
+                                .querySelector('a[class*="polysemantToolItem_"]');
+                            
+                            if (redirectUrl) {
+                                // 获取跳转后的URL
+                                const redirectHref = redirectUrl.getAttribute('href');
+                                
+                                // 访问跳转后的URL
+                                fetch(redirectHref)
+                                    .then(response => response.text())
+                                    .then(redirectHtml => {
+                                        // 查找匹配的描述信息
+                                        const matchingElement = new DOMParser().parseFromString(redirectHtml, 'text/html')
+                                            .querySelector(`span[class*="contentItemChildText_"]:contains(${description})`);
+                                        
+                                        if (matchingElement) {
+                                            const parentHref = matchingElement.parentElement.getAttribute('href');
+                                            const finalUrl = `${parentHref}?adplus`;
+                                            window.open(finalUrl, '_blank');
+                                        } else {
+                                            window.open(`${redirectHref}?adplus`, '_blank');
+                                        }
+                                    });
+                            } else {
+                                window.open(`${searchUrl}?adplus`, '_blank');
+                            }
+                        });
+                }
+            }, index * 30000);
+        }
+    });
+}
+</script>
+
+</body>
+</html>
