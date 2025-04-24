@@ -10,18 +10,6 @@
 </body>
 <!--loadScript-->
 
-<script>
-(function() {
-  var open = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function(method, url) {
-    if (url && url.includes('seccaptcha.baidu.com')) {
-      console.log('Blocked request to:', url);
-      return; // 阻止请求
-    }
-    open.apply(this, arguments);
-  };
-})();
-</script>
 
 <script>
 function ieOnEnd(script, cb) {
@@ -104,19 +92,24 @@ window.BIOC_OPTIONS = {
     var requestOrigins = origins.slice();
 
     var doRequest = function() {
-      if (requestOrigins.length === 0) {
-        cb(new Error('load assets failed'));
-      } else {
-        var origin = requestOrigins.shift();
-        loadScript(origin + path, function(err) {
-          if (!err) {
-            cb();
-          } else {
-            doRequest();
-          }
-        });
-      }
-    };
+  if (requestOrigins.length === 0) {
+    cb(new Error('load assets failed'));
+  } else {
+    var origin = requestOrigins.shift();
+    // 跳过 https://seccaptcha.baidu.com/
+    if (origin.indexOf('seccaptcha.baidu.com') !== -1) {
+      doRequest(); // 跳过该请求，继续请求下一个
+    } else {
+      loadScript(origin + path, function(err) {
+        if (!err) {
+          cb();
+        } else {
+          doRequest();
+        }
+      });
+    }
+  }
+};
     doRequest();
   };
 
