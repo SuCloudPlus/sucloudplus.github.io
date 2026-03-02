@@ -190,63 +190,72 @@
     }
 
     async function performSave(isManual = false) {
-        if (!isDirty && !isManual) return;
-        
-        const currentTitle = document.getElementById('filename').value.trim() || "无题";
-        let content = cm.getValue() || " ";
-        document.getElementById('status-text').innerText = "正在保存...";
-
-        try {
-            const token = articleInfo.type === 'Private' ? userConfig.token : "";
-            const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
-
-            let titleToEncode = currentTitle;
-            let saveContent = content;
-
-            if (articleInfo.type === 'Private') {
-                const encryptedTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
-                titleToEncode = encryptedTitle;
-                saveContent = await CryptoHelper.encrypt(content, userConfig.password);
-            }
-
-            // 处理 ID：如果是 new，则生成一个当前时间戳作为 ID
-            let currentId = articleInfo.idPrefix;
-            if (currentId === 'new') {
-                currentId = BlogNamingHelper.generateTimestampID(); // 确保 Helper 有此方法，或手动生成
-                articleInfo.idPrefix = currentId;
-                document.getElementById('static-time').innerText = currentId;
-            }
-
-            const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
-            const newFileName = BlogNamingHelper.formatFileName(currentId, b62Title);
-
-            const patchFiles = {};
-            // 如果是新文章或文件名变了
-            if (articleInfo.rawFileName && newFileName !== articleInfo.rawFileName) {
-                // 重命名：旧文件设为 null，新文件写入内容
-                patchFiles[articleInfo.rawFileName] = null;
-                patchFiles[newFileName] = { content: saveContent };
-            } else {
-                patchFiles[newFileName] = { content: saveContent };
-            }
-
-            await GistHelper.update(token, gistId, "Save Blog", patchFiles);
-            
-            // 更新当前状态，防止重复创建
-            articleInfo.rawFileName = newFileName;
-            isDirty = false;
-            document.getElementById('status-text').innerText = "已于 " + new Date().toLocaleTimeString() + " 保存";
-            
-            // 如果是第一次保存新文章，更新 URL 防止刷新丢失
-            if (window.location.search.includes('id=new')) {
-                const newUrl = `?id=${currentId}&type=${articleInfo.type}`;
-                window.history.replaceState(null, '', newUrl);
-            }
-        } catch (err) {
-            console.error(err);
-            document.getElementById('status-text').innerText = "保存失败";
-        }
+    if (!isDirty && !isManual) return;
+    
+    // --- 核心修正点：必须拿到 Token 才能保存 ---
+    const session = getCookie("blog_session");
+    if (!session) {
+        alert("登录已过期或未登录，无法保存！请重新从首页登录。");
+        return;
     }
+    const authData = JSON.parse(decodeURIComponent(session));
+    const token = authData.token; // 始终使用登录后的 Token 进行写入操作
+    // ----------------------------------------
+
+    const currentTitle = document.getElementById('filename').value.trim() || "无题";
+    let content = cm.getValue() || " ";
+    document.getElementById('status-text').innerText = "正在保存...";
+
+    try {
+        // 根据类型选择目标 Gist ID
+        const gistId = articleInfo.type === 'Private' ? authData.gistId : ENCRYPTED_CONFIG_BlogPublic;
+
+        let titleToEncode = currentTitle;
+        let saveContent = content;
+
+        // 如果是私密类型，执行加密
+        if (articleInfo.type === 'Private') {
+            const encryptedTitle = await CryptoHelper.encrypt(currentTitle, authData.password);
+            titleToEncode = encryptedTitle;
+            saveContent = await CryptoHelper.encrypt(content, authData.password);
+        }
+
+        // 处理 ID
+        let currentId = articleInfo.idPrefix;
+        if (currentId === 'new') {
+            currentId = BlogNamingHelper.generateTimestampID();
+            articleInfo.idPrefix = currentId;
+            document.getElementById('static-time').innerText = currentId;
+        }
+
+        const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
+        const newFileName = BlogNamingHelper.formatFileName(currentId, b62Title);
+
+        const patchFiles = {};
+        // 如果文件名变了（比如改了标题），需要删除旧文件创建新文件
+        if (articleInfo.rawFileName && newFileName !== articleInfo.rawFileName) {
+            patchFiles[articleInfo.rawFileName] = { content: null }; // 显式删除旧文件
+            patchFiles[newFileName] = { content: saveContent };
+        } else {
+            patchFiles[newFileName] = { content: saveContent };
+        }
+
+        // 注意：这里传入的是从 session 拿到的 token
+        await GistHelper.update(token, gistId, "Save Blog", patchFiles);
+        
+        articleInfo.rawFileName = newFileName;
+        isDirty = false;
+        document.getElementById('status-text').innerText = "已于 " + new Date().toLocaleTimeString() + " 保存";
+        
+        if (window.location.search.includes('id=new')) {
+            const newUrl = `?id=${currentId}&type=${articleInfo.type}`;
+            window.history.replaceState(null, '', newUrl);
+        }
+    } catch (err) {
+        console.error("保存失败详情:", err);
+        document.getElementById('status-text').innerText = "保存失败: " + err.message;
+    }
+}
 
     function exportFile(ext) {
         const title = document.getElementById('filename').value || '未命名';
@@ -289,3 +298,4 @@
 </script>
 </body>
 </html>
+
