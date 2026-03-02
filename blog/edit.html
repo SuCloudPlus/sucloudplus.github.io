@@ -166,11 +166,9 @@
 async function performSave(isManual = false) {
     if (!isDirty && !isManual) return;
     
-    // 1. 获取用户输入的新标题（明文）
     let currentTitle = document.getElementById('filename').value.trim() || "无标题";
-    
     let content = cm.getValue();
-    if (!content) content = " "; // 避免 422 错误
+    if (!content) content = " "; 
 
     setSaveStatus("正在保存...", "status-syncing");
 
@@ -181,50 +179,46 @@ async function performSave(isManual = false) {
         let saveTitle = currentTitle;
         let saveContent = content;
 
-        // 2. 如果是私有文章，【标题】和【内容】都要走加密流程
         if (articleInfo.type === 'Private') {
-            // 加密标题（用于生成文件名）
-            saveTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
-            // 加密内容
+            // 1. 先进行 AES 加密
+            const encryptedTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
+            // 2. 将加密后的密文转换为 Base62 (确保与 BlogNamingHelper 的解密逻辑对应)
+            saveTitle = BlogNamingHelper.encodeBase62(encryptedTitle); 
+            
+            // 内容只需加密，无需 Base62
             saveContent = await CryptoHelper.encrypt(content, userConfig.password);
         }
 
-        // 3. Base62转字符串，合成新的真实文件名（保持原始时间戳前缀不变）
-        // 格式通常为: 时间戳-加密标题.md
-// 直接使用 formatFileName，传入原始时间戳 ID 和加密后的 saveTitle
-// 该函数内部会自动处理后缀 .md 和分类后缀
-const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
+        // 3. 使用 formatFileName 合成最终文件名
+        // 注意：这里的 saveTitle 已经是 [加密+Base62] 后的结果了
+        const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
 
-        // 4. 构建 Patch 对象
+        console.log("新文件名预览:", newFileName);
+
         const patchFiles = {};
         if (newFileName !== articleInfo.rawFileName) {
-            // 【关键重命名逻辑】：告诉 GitHub 把旧的 Key 改名为新的 Key
+            // 重命名逻辑
             patchFiles[articleInfo.rawFileName] = {
                 filename: newFileName,
                 content: saveContent
             };
         } else {
-            // 只是改了内容，标题没变
             patchFiles[articleInfo.rawFileName] = {
                 content: saveContent
             };
         }
 
-        // 5. 提交到 Gist
         await GistHelper.update(token, gistId, "Blog Rename and Update", patchFiles);
 
-        // 6. 更新内存状态，防止下次保存找不到文件
         articleInfo.rawFileName = newFileName;
         isDirty = false;
         
         setSaveStatus("保存成功 " + new Date().toLocaleTimeString(), "status-success");
-        document.getElementById('status-bar').innerText = "文件名已更新并加密存储";
         
     } catch (err) {
         console.error("Save Error:", err);
-        setSaveStatus("保存失败: 422", "status-dirty");
-        // 如果是 422，通常是因为 Gist 中已存在同名文件或 Token 权限问题
-        alert("保存失败，请检查网络或标题是否重复。详情见控制台。");
+        setSaveStatus("保存失败", "status-dirty");
+        alert("保存失败，详情请查看控制台。");
     }
 }
 
@@ -276,4 +270,5 @@ function exportFile(ext) {
 </script>
 </body>
 </html>
+
 
