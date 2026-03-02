@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的加密博客</title>
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f7f6; }
+        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        .post-card { background: white; padding: 15px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .post-time { font-size: 0.85em; color: #888; }
+        .btn { cursor: pointer; padding: 5px 15px; border-radius: 4px; border: 1px solid #333; background: #333; color: #fff; }
+        .login-box { display: none; background: #eee; padding: 20px; border-radius: 8px; margin: 10px 0; }
+        .status-tag { font-size: 0.7em; padding: 2px 6px; border-radius: 3px; margin-left: 5px; }
+        .status-public { background: #e1f5fe; color: #01579b; }
+        .status-private { background: #fff3e0; color: #e65100; }
+    </style>
+
+    <script src="https://sucloudplus.github.io/assets/config.js"></script> 
+    <script src="https://sucloudplus.github.io/assets/crypto-helper.js"></script>
+    <script src="https://sucloudplus.github.io/assets/gist-helper.js"></script>
+    <script src="https://sucloudplus.github.io/assets/blog-naming-helper.js"></script>
+</head>
+<body>
+
+<header>
+    <h1>博客</h1>
+    <div id="auth-area">
+        <button id="login-nav-btn" class="btn" onclick="toggleLoginBox()">登录</button>
+        <span id="user-info" style="display:none">
+            <span id="user-display">管理员</span>
+            <button class="btn" onclick="logout()" style="background:#d32f2f; border:none;">退出</button>
+        </span>
+    </div>
+</header>
+
+<div id="login-box" class="login-box">
+    <input type="password" id="password-input" placeholder="输入解密密码...">
+    <button class="btn" onclick="login()">解密并登录</button>
+</div>
+
+<div id="posts-container">
+    <p>正在加载文章内容...</p>
+</div>
+
+<script>
+    // --- 核心逻辑 ---
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    // 1. 初始化页面
+    window.onload = async function() {
+        const savedSession = getCookie("blog_session");
+        if (savedSession) {
+            try {
+                // 恢复登录状态
+                const config = JSON.parse(decodeURIComponent(savedSession));
+                showUserInfo();
+                // 传入密码以便后续解密加密过的文章名
+                await loadBlog(config.gistId, config.token, true, config.password);
+            } catch (e) {
+                loadPublicBlog();
+            }
+        } else {
+            loadPublicBlog();
+        }
+    };
+
+    // 2. 加载公开文章
+    async function loadPublicBlog() {
+        const publicGistId = typeof ENCRYPTED_CONFIG_BlogPublic !== 'undefined' ? ENCRYPTED_CONFIG_BlogPublic : "";
+        // 公开版通常标题不加密或仅 Base62，所以不传密码参数
+        await loadBlog(publicGistId, "", false, null);
+    }
+
+    // 3. 核心加载函数
+    async function loadBlog(gistId, token, isPrivate, password) {
+        const container = document.getElementById('posts-container');
+        try {
+            const data = await GistHelper.get(token, gistId);
+            const files = data.files;
+            container.innerHTML = ""; 
+
+            const fileList = Object.keys(files).sort().reverse(); 
+
+            if (fileList.length === 0) {
+                container.innerHTML = "<p>尚无文章。</p>";
+                return;
+            }
+
+            for (const fileName of fileList) {
+                // A. 先通过命名助手解析文件名
+                const info = BlogNamingHelper.parseFileName(fileName);
+                let displayTitle = info.title;
+
+                // B. 如果是私有模式且有密码，尝试对解析出来的 title 进行 AES 解密
+                if (isPrivate && password) {
+                    try {
+                        // 假设你在存入时，文件名里的 title 已经是 CryptoHelper.encrypt 后的字符串
+                        displayTitle = await CryptoHelper.decrypt(info.title, password);
+                    } catch (e) {
+                        console.warn("标题解密失败，显示原始编码:", info.title);
+                    }
+                }
+                
+                const div = document.createElement('div');
+                div.className = 'post-card';
+                
+                const tag = isPrivate 
+                    ? `<span class="status-tag status-private">私密</span>` 
+                    : `<span class="status-tag status-public">公开</span>`;
+
+                div.innerHTML = `
+                    <div class="post-time">${info.formattedTime} ${tag}</div>
+                    <h3>${displayTitle}</h3>
+                    <div class="post-excerpt">${files[fileName].content.substring(0, 100)}...</div>
+                `;
+                container.appendChild(div);
+            }
+        } catch (err) {
+            container.innerHTML = `<p style="color:red">加载失败: ${err.message}</p>`;
+        }
+    }
+
+    // 4. 修改后的登录逻辑
+    async function login() {
+        const password = document.getElementById('password-input').value;
+        if (!password) return alert("请输入密码");
+
+        try {
+            // 分别解密 Gist ID 和 Token
+            const gistId = await CryptoHelper.decrypt(ENCRYPTED_CONFIG_BlogPrivate_gistid, password);
+            const token = await CryptoHelper.decrypt(ENCRYPTED_CONFIG_BlogPrivate_token, password);
+
+            const sessionData = {
+                gistId: gistId,
+                token: token,
+                password: password // 存入密码以便刷新后解密文章名
+            };
+
+            const decryptedStr = JSON.stringify(sessionData);
+
+            // 保存状态到 Cookie (7天)
+            const d = new Date();
+            d.setTime(d.getTime() + (7*24*60*60*1000));
+            document.cookie = `blog_session=${encodeURIComponent(decryptedStr)}; expires=${d.toUTCString()}; path=/`;
+
+            toggleLoginBox();
+            showUserInfo();
+            await loadBlog(gistId, token, true, password);
+        } catch (err) {
+            console.error(err);
+            alert("密码错误或解密配置失败！");
+        }
+    }
+
+    function logout() {
+        document.cookie = "blog_session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        location.reload();
+    }
+
+    function toggleLoginBox() {
+        const box = document.getElementById('login-box');
+        box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function showUserInfo() {
+        document.getElementById('login-nav-btn').style.display = 'none';
+        document.getElementById('user-info').style.display = 'block';
+    }
+</script>
+
+</body>
+</html>
