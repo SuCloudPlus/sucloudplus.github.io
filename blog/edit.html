@@ -176,49 +176,43 @@ async function performSave(isManual = false) {
         const token = articleInfo.type === 'Private' ? userConfig.token : "";
         const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
 
-        let saveTitle = currentTitle;
+        let titleToEncode = currentTitle;
         let saveContent = content;
 
         if (articleInfo.type === 'Private') {
-            // 1. 先进行 AES 加密
+            // 1. 加密标题 (AES)
             const encryptedTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
-            // 2. 将加密后的密文转换为 Base62 (确保与 BlogNamingHelper 的解密逻辑对应)
-            saveTitle = BlogNamingHelper.encodeBase62(encryptedTitle); 
-            
-            // 内容只需加密，无需 Base62
+            // 2. 准备进行 Base62 编码
+            titleToEncode = encryptedTitle;
+            // 3. 加密内容
             saveContent = await CryptoHelper.encrypt(content, userConfig.password);
         }
 
-        // 3. 使用 formatFileName 合成最终文件名
-        // 注意：这里的 saveTitle 已经是 [加密+Base62] 后的结果了
-        const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
+        // 4. 进行 Base62 编码 (无论是明文还是加密串，文件名部分都统一编码)
+        const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
 
-        console.log("新文件名预览:", newFileName);
+        // 5. 合成最终文件名 (传入固定的 articleInfo.idPrefix)
+        const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, b62Title);
 
         const patchFiles = {};
         if (newFileName !== articleInfo.rawFileName) {
-            // 重命名逻辑
             patchFiles[articleInfo.rawFileName] = {
                 filename: newFileName,
                 content: saveContent
             };
         } else {
-            patchFiles[articleInfo.rawFileName] = {
-                content: saveContent
-            };
+            patchFiles[articleInfo.rawFileName] = { content: saveContent };
         }
 
-        await GistHelper.update(token, gistId, "Blog Rename and Update", patchFiles);
+        await GistHelper.update(token, gistId, "Update Blog", patchFiles);
 
         articleInfo.rawFileName = newFileName;
         isDirty = false;
-        
         setSaveStatus("保存成功 " + new Date().toLocaleTimeString(), "status-success");
         
     } catch (err) {
         console.error("Save Error:", err);
         setSaveStatus("保存失败", "status-dirty");
-        alert("保存失败，详情请查看控制台。");
     }
 }
 
@@ -270,5 +264,6 @@ function exportFile(ext) {
 </script>
 </body>
 </html>
+
 
 
