@@ -7,6 +7,12 @@
     <style>
         body { font-family: sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f7f6; }
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        
+        /* 页签样式 */
+        .tabs { display: none; margin: 20px 0; border-bottom: 1px solid #ccc; }
+        .tab-btn { cursor: pointer; padding: 10px 20px; border: none; background: none; font-size: 16px; outline: none; }
+        .tab-btn.active { border-bottom: 3px solid #333; font-weight: bold; }
+
         .post-card { background: white; padding: 15px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .post-time { font-size: 0.85em; color: #888; }
         .btn { cursor: pointer; padding: 5px 15px; border-radius: 4px; border: 1px solid #333; background: #333; color: #fff; }
@@ -29,7 +35,7 @@
         <button id="login-nav-btn" class="btn" onclick="toggleLoginBox()">登录</button>
         <span id="user-info" style="display:none">
             <span id="user-display">管理员</span>
-            <button class="btn" onclick="logout()" style="background:#d32f2f; border:none;">退出</button>
+            <button class="btn" onclick="logout()" style="background:#d32f2f; border:none; margin-left:10px;">退出</button>
         </span>
     </div>
 </header>
@@ -39,12 +45,17 @@
     <button class="btn" onclick="login()">解密并登录</button>
 </div>
 
+<div id="blog-tabs" class="tabs">
+    <button id="tab-public" class="tab-btn active" onclick="switchTab('public')">公开文章</button>
+    <button id="tab-private" class="tab-btn" onclick="switchTab('private')">私密文章</button>
+</div>
+
 <div id="posts-container">
-    <p>正在加载文章内容...</p>
+    <p>正在加载内容...</p>
 </div>
 
 <script>
-    // --- 核心逻辑 ---
+    let currentUserConfig = null; // 存储解密后的 Token 和 ID
 
     function getCookie(name) {
         const value = `; ${document.cookie}`;
@@ -52,16 +63,15 @@
         if (parts.length === 2) return parts.pop().split(';').shift();
     }
 
-    // 1. 初始化页面
     window.onload = async function() {
         const savedSession = getCookie("blog_session");
         if (savedSession) {
             try {
-                // 恢复登录状态
-                const config = JSON.parse(decodeURIComponent(savedSession));
+                currentUserConfig = JSON.parse(decodeURIComponent(savedSession));
                 showUserInfo();
-                // 传入密码以便后续解密加密过的文章名
-                await loadBlog(config.gistId, config.token, true, config.password);
+                document.getElementById('blog-tabs').style.display = 'flex';
+                // 默认登录后显示私密文章页签
+                switchTab('private');
             } catch (e) {
                 loadPublicBlog();
             }
@@ -70,14 +80,27 @@
         }
     };
 
-    // 2. 加载公开文章
+    // 页签切换逻辑
+    async function switchTab(type) {
+        // UI 切换
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(`tab-${type}`).classList.add('active');
+        document.getElementById('posts-container').innerHTML = "<p>正在加载...</p>";
+
+        if (type === 'public') {
+            await loadPublicBlog();
+        } else {
+            if (currentUserConfig) {
+                await loadBlog(currentUserConfig.gistId, currentUserConfig.token, true, currentUserConfig.password);
+            }
+        }
+    }
+
     async function loadPublicBlog() {
         const publicGistId = typeof ENCRYPTED_CONFIG_BlogPublic !== 'undefined' ? ENCRYPTED_CONFIG_BlogPublic : "";
-        // 公开版通常标题不加密或仅 Base62，所以不传密码参数
         await loadBlog(publicGistId, "", false, null);
     }
 
-    // 3. 核心加载函数
     async function loadBlog(gistId, token, isPrivate, password) {
         const container = document.getElementById('posts-container');
         try {
@@ -85,31 +108,29 @@
             const files = data.files;
             container.innerHTML = ""; 
 
+            // 按文件名（包含时间戳）倒序排序
             const fileList = Object.keys(files).sort().reverse(); 
 
             if (fileList.length === 0) {
-                container.innerHTML = "<p>尚无文章。</p>";
+                container.innerHTML = "<p>当前分类下尚无文章。</p>";
                 return;
             }
 
             for (const fileName of fileList) {
-                // A. 先通过命名助手解析文件名
                 const info = BlogNamingHelper.parseFileName(fileName);
                 let displayTitle = info.title;
 
-                // B. 如果是私有模式且有密码，尝试对解析出来的 title 进行 AES 解密
+                // 如果是私密模式，解密文章标题
                 if (isPrivate && password) {
                     try {
-                        // 假设你在存入时，文件名里的 title 已经是 CryptoHelper.encrypt 后的字符串
                         displayTitle = await CryptoHelper.decrypt(info.title, password);
                     } catch (e) {
-                        console.warn("标题解密失败，显示原始编码:", info.title);
+                        console.warn("标题解密失败:", info.title);
                     }
                 }
                 
                 const div = document.createElement('div');
                 div.className = 'post-card';
-                
                 const tag = isPrivate 
                     ? `<span class="status-tag status-private">私密</span>` 
                     : `<span class="status-tag status-public">公开</span>`;
@@ -126,35 +147,29 @@
         }
     }
 
-    // 4. 修改后的登录逻辑
     async function login() {
         const password = document.getElementById('password-input').value;
         if (!password) return alert("请输入密码");
 
         try {
-            // 分别解密 Gist ID 和 Token
+            // 分别解密配置
             const gistId = await CryptoHelper.decrypt(ENCRYPTED_CONFIG_BlogPrivate_gistid, password);
             const token = await CryptoHelper.decrypt(ENCRYPTED_CONFIG_BlogPrivate_token, password);
 
-            const sessionData = {
-                gistId: gistId,
-                token: token,
-                password: password // 存入密码以便刷新后解密文章名
-            };
+            currentUserConfig = { gistId, token, password };
 
-            const decryptedStr = JSON.stringify(sessionData);
-
-            // 保存状态到 Cookie (7天)
+            // 存入 Cookie
             const d = new Date();
             d.setTime(d.getTime() + (7*24*60*60*1000));
-            document.cookie = `blog_session=${encodeURIComponent(decryptedStr)}; expires=${d.toUTCString()}; path=/`;
+            document.cookie = `blog_session=${encodeURIComponent(JSON.stringify(currentUserConfig))}; expires=${d.toUTCString()}; path=/`;
 
+            // UI 更新
             toggleLoginBox();
             showUserInfo();
-            await loadBlog(gistId, token, true, password);
+            document.getElementById('blog-tabs').style.display = 'flex';
+            switchTab('private');
         } catch (err) {
-            console.error(err);
-            alert("密码错误或解密配置失败！");
+            alert("密码错误或配置解密失败！");
         }
     }
 
