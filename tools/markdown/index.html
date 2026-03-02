@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Professional MD Studio</title>
+    <title>Markdown编辑器</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
@@ -60,7 +60,7 @@
 
 <header class="top-nav">
     <div class="nav-row-1">
-        <span style="font-weight: bold; font-size: 18px;">MD Studio</span>
+        <span style="font-weight: bold; font-size: 18px;">Markdown编辑器</span>
         <input type="text" id="filename" value="我的文档">
         <div style="margin-left: auto; display: flex; gap: 8px;">
             <button class="btn btn-primary" onclick="togglePreview()">预览开关</button>
@@ -193,7 +193,7 @@
     window.onload = () => {
         const saved = localStorage.getItem('md_content_final');
         if (saved) cm.setValue(saved);
-        else cm.setValue("# 新文档\n\n## 这是一个二级标题\n欢迎使用此编辑器。");
+        else cm.setValue("");
         updatePreview();
     };
 </script>
