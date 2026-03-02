@@ -23,7 +23,8 @@ const BlogNamingHelper = (function() {
     function _fromBase62(b62) {
         if (!b62) return "";
         let num = 0n;
-        for (let char of b62) {
+        const chars = Array.from(b62);
+        for (let char of chars) {
             const index = CHARSET.indexOf(char);
             if (index === -1) return "[编码错误]"; 
             num = num * 62n + BigInt(index);
@@ -31,7 +32,8 @@ const BlogNamingHelper = (function() {
         let hex = num.toString(16);
         if (hex.length % 2 !== 0) hex = '0' + hex;
         try {
-            const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+            const hexMatches = hex.match(/.{1,2}/g);
+            const bytes = new Uint8Array(hexMatches.map(byte => parseInt(byte, 16)));
             return new TextDecoder().decode(bytes);
         } catch (e) {
             return "[解码失败]";
@@ -43,12 +45,23 @@ const BlogNamingHelper = (function() {
         decodeBase62(b62) { return _fromBase62(b62); },
 
         /**
+         * 生成 17 位标准时间戳 ID (YYYYMMDDHHmmssSSS)
+         */
+        generateTimestampID() {
+            const now = new Date();
+            const pad = (n) => n.toString().padStart(2, '0');
+            const ms = now.getMilliseconds().toString().padStart(3, '0');
+            return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${ms}`;
+        },
+
+        /**
          * 合成文件名
-         * @param {string} id 原始时间戳前缀
+         * @param {string} id 原始时间戳前缀 (如果是新文章则传新生成的ID)
          * @param {string} encodedTitle 已经是 Base62 编码后的标题串
          */
         formatFileName(id, encodedTitle) {
-            const timestamp = id || new Date().toISOString().replace(/[-T:Z.]/g, "").substring(0, 17);
+            // 如果 ID 为空或为 'new'，则生成一个新的
+            const timestamp = (id && id !== 'new') ? id : this.generateTimestampID();
             return `${timestamp}-${encodedTitle}.md`;
         },
 
@@ -60,13 +73,13 @@ const BlogNamingHelper = (function() {
             const firstDashIndex = pureName.indexOf('-');
             
             if (firstDashIndex === -1) {
-                return { rawTime: "", title: pureName };
+                return { rawTime: "", formattedTime: "未知时间", title: pureName };
             }
 
             const rawTime = pureName.substring(0, firstDashIndex);
             const encodedPart = pureName.substring(firstDashIndex + 1);
             
-            // 尝试格式化时间显示
+            // 格式化时间显示：YYYY-MM-DD HH:mm:ss
             let formattedTime = rawTime;
             if (rawTime.length >= 14) {
                 formattedTime = `${rawTime.substring(0,4)}-${rawTime.substring(4,6)}-${rawTime.substring(6,8)} ` +
@@ -76,8 +89,6 @@ const BlogNamingHelper = (function() {
             return {
                 rawTime: rawTime,
                 formattedTime: formattedTime,
-                // 这里返回的是 _fromBase62 后的字符串
-                // 如果是私有文章，这个字符串依然是加密的 Base64，需要进一步 Crypto 解密
                 title: _fromBase62(encodedPart)
             };
         }
