@@ -9,12 +9,10 @@
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* 导航与功能区 */
         .top-nav { background: #fff; border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
         .nav-row-1 { display: flex; align-items: center; padding: 10px 20px; gap: 15px; border-bottom: 1px solid #f0f0f0; }
         .nav-row-2 { display: flex; align-items: center; padding: 8px 20px; gap: 20px; background: #fafbfc; border-bottom: 1px solid var(--border); }
         
-        /* 标题编辑区 */
         .name-editor-wrapper { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 600px; }
         .input-group { display: flex; align-items: center; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 0 8px; }
         .input-group:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(33,136,255,0.1); }
@@ -23,7 +21,6 @@
         input[type="text"], input[type="number"] { border: none; background: transparent; padding: 6px 8px; outline: none; font-size: 13px; }
         #filename { width: 100%; font-weight: 500; }
 
-        /* 功能条样式 */
         .tool-item { display: flex; align-items: center; gap: 5px; }
         .tool-label { font-size: 12px; color: #666; font-weight: bold; }
         .search-input { width: 180px; }
@@ -34,7 +31,6 @@
         .btn-confirm { background: var(--accent); color: #fff; border: none; }
         .btn-save { background: #28a745; color: #fff; border: none; }
         
-        /* 编辑器区域 */
         .main-stage { display: flex; flex: 1; overflow: hidden; }
         #toc-pane { width: 200px; border-right: 1px solid var(--border); overflow-y: auto; padding: 15px; background: #fff; font-size: 13px; }
         #workspace { flex: 1; position: relative; display: flex; flex-direction: column; background: #fff; }
@@ -60,16 +56,16 @@
         <button class="btn" onclick="location.href='index.html'">← 返回</button>
         <div class="name-editor-wrapper">
             <div class="input-group" style="flex:1">
-                <span id="static-time">载入中...</span>
+                <span id="static-time">NEW</span>
                 <input type="text" id="filename" placeholder="文章标题...">
             </div>
-            <button class="btn btn-confirm" onclick="manualSave()">确定修改</button>
+            <button class="btn btn-confirm" onclick="manualSave()">确定保存</button>
         </div>
         <div style="margin-left: auto; display: flex; gap: 8px;">
             <button class="btn" onclick="exportFile('md')">导出 MD</button>
             <button class="btn" onclick="exportFile('txt')">导出 TXT</button>
             <button class="btn btn-primary" onclick="togglePreview()">预览</button>
-            <button class="btn btn-save" onclick="manualSave()">立即保存</button>
+            <button class="btn btn-save" onclick="manualSave()">保存</button>
         </div>
     </div>
 
@@ -119,7 +115,12 @@
         }
 
         initEditor();
-        await loadAndDecrypt();
+        if (articleInfo.idPrefix !== 'new') {
+            await loadAndDecrypt();
+        } else {
+            document.getElementById('static-time').innerText = "NEW";
+            document.getElementById('status-text').innerText = "新文章模式";
+        }
         setInterval(() => performSave(false), 30000);
     };
 
@@ -135,36 +136,25 @@
         document.getElementById('filename').addEventListener('input', () => { isDirty = true; });
     }
 
-    // --- 核心搜索功能 ---
     function doSearch() {
         const query = document.getElementById('search-keyword').value;
         if (!query) return;
-
-        // 如果是新搜索，重置游标
         if (query !== lastSearchQuery) {
             lastSearchQuery = query;
             lastSearchCursor = cm.getSearchCursor(query);
         }
-
         if (!lastSearchCursor.findNext()) {
-            // 查到底了，从头开始
             lastSearchCursor = cm.getSearchCursor(query);
-            if (!lastSearchCursor.findNext()) {
-                alert("未找到内容");
-                return;
-            }
+            if (!lastSearchCursor.findNext()) { alert("未找到内容"); return; }
         }
-
         cm.setSelection(lastSearchCursor.from(), lastSearchCursor.to());
         cm.scrollIntoView({from: lastSearchCursor.from(), to: lastSearchCursor.to()}, 150);
         cm.focus();
     }
 
-    // --- 核心跳转功能 ---
     function doJump() {
         const line = parseInt(document.getElementById('jump-line').value);
         if (isNaN(line)) return;
-        
         const actualLine = Math.max(1, Math.min(line, cm.lineCount())) - 1;
         cm.setCursor(actualLine, 0);
         cm.focus();
@@ -178,7 +168,7 @@
 
             const data = await GistHelper.get(token, gistId);
             const fileName = Object.keys(data.files).find(n => n.startsWith(articleInfo.idPrefix));
-            if (!fileName) throw new Error("文件不存在");
+            if (!fileName) return; // 新文件找不到是正常的
             
             articleInfo.rawFileName = fileName;
             const nameObj = BlogNamingHelper.parseFileName(fileName);
@@ -196,15 +186,15 @@
             cm.setValue(content);
             updateTOC();
             isDirty = false;
-        } catch (err) { console.error(err); }
+        } catch (err) { console.error("加载失败:", err); }
     }
 
     async function performSave(isManual = false) {
         if (!isDirty && !isManual) return;
-        document.getElementById('status-text').innerText = "正在保存...";
         
         const currentTitle = document.getElementById('filename').value.trim() || "无题";
         let content = cm.getValue() || " ";
+        document.getElementById('status-text').innerText = "正在保存...";
 
         try {
             const token = articleInfo.type === 'Private' ? userConfig.token : "";
@@ -217,26 +207,43 @@
                 const encryptedTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
                 titleToEncode = encryptedTitle;
                 saveContent = await CryptoHelper.encrypt(content, userConfig.password);
-            } else {
-                // 公开文章标题也转 Base62 确保 Helper 解析一致性
-                titleToEncode = currentTitle; 
+            }
+
+            // 处理 ID：如果是 new，则生成一个当前时间戳作为 ID
+            let currentId = articleInfo.idPrefix;
+            if (currentId === 'new') {
+                currentId = BlogNamingHelper.generateTimestampID(); // 确保 Helper 有此方法，或手动生成
+                articleInfo.idPrefix = currentId;
+                document.getElementById('static-time').innerText = currentId;
             }
 
             const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
-            const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, b62Title);
+            const newFileName = BlogNamingHelper.formatFileName(currentId, b62Title);
 
             const patchFiles = {};
-            if (newFileName !== articleInfo.rawFileName) {
-                patchFiles[articleInfo.rawFileName] = { filename: newFileName, content: saveContent };
+            // 如果是新文章或文件名变了
+            if (articleInfo.rawFileName && newFileName !== articleInfo.rawFileName) {
+                // 重命名：旧文件设为 null，新文件写入内容
+                patchFiles[articleInfo.rawFileName] = null;
+                patchFiles[newFileName] = { content: saveContent };
             } else {
-                patchFiles[articleInfo.rawFileName] = { content: saveContent };
+                patchFiles[newFileName] = { content: saveContent };
             }
 
             await GistHelper.update(token, gistId, "Save Blog", patchFiles);
+            
+            // 更新当前状态，防止重复创建
             articleInfo.rawFileName = newFileName;
             isDirty = false;
             document.getElementById('status-text').innerText = "已于 " + new Date().toLocaleTimeString() + " 保存";
+            
+            // 如果是第一次保存新文章，更新 URL 防止刷新丢失
+            if (window.location.search.includes('id=new')) {
+                const newUrl = `?id=${currentId}&type=${articleInfo.type}`;
+                window.history.replaceState(null, '', newUrl);
+            }
         } catch (err) {
+            console.error(err);
             document.getElementById('status-text').innerText = "保存失败";
         }
     }
