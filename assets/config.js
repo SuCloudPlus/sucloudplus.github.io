@@ -6,4 +6,4 @@ const ENCRYPTED_CONFIG_note = "U2FsdGVkX186A7jxi4bQDmqV2/iyIsVtxlwFb8e25naiykM16
 const ENCRYPTED_CONFIG_BlogPublic = "45966e75d8492fe45df6dfd64ad8c1a3";
 // 博客-私密
 const ENCRYPTED_CONFIG_BlogPrivate_gistid = "LIpWv+GOADD+xGdUZNcWCmY8sBLiby0gJvMptd0APkMokpFfoSdl95Wqm6j6Qn99XoK8OJwujUFPph+0";
-const ENCRYPTED_CONFIG_BlogPrivate_token = "QkVMhLNmLigwW1XOOP6pmMDZ19SBrojSlGGTcNqLpMOGi21QbZlYlcuR3mTs/1JaGmCVYenPz+pla1rD1kMTFjj94jQqyFvCGfi8czKCl3XwK6UBcXI2ybExUngg8v5SQ9ehBk4Zr1VQr92qLyfhkOdtEbli+WWTKw==";
+const ENCRYPTED_CONFIG_BlogPrivate_token = "LEFR44ZXbSPdsN+LKer9Cr/Eew17izPcifFF4xavqpLic/aatMVmG+j/T/Eg4sidjDn1mzLOrmgpS5cYjPnIus2wCQx/HLPQksHvvcRKxKXew9E4ZVlIxrGROmJqlnwARyO2FhJAHrGjjVmLpLqetFdOx1Ub6jBhng==";
