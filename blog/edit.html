@@ -4,38 +4,41 @@
     <meta charset="UTF-8">
     <title>编辑器 - 加密博客系统</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/matchesonscrollbar.min.css">
-    
     <style>
         :root { --bg: #f8f9fb; --border: #e1e4e8; --accent: #2188ff; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         
-        /* 导航栏 */
+        /* 导航与功能区 */
         .top-nav { background: #fff; border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
         .nav-row-1 { display: flex; align-items: center; padding: 10px 20px; gap: 15px; border-bottom: 1px solid #f0f0f0; }
+        .nav-row-2 { display: flex; align-items: center; padding: 8px 20px; gap: 20px; background: #fafbfc; border-bottom: 1px solid var(--border); }
         
         /* 标题编辑区 */
         .name-editor-wrapper { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 600px; }
-        .name-editor { display: flex; align-items: center; background: #f0f2f5; border: 1px solid var(--border); border-radius: 4px; padding: 0 10px; flex: 1; }
-        #static-time { color: #888; font-family: monospace; font-size: 13px; padding-right: 8px; border-right: 1px solid #ddd; user-select: none; }
-        #filename { border: none; background: transparent; padding: 8px 10px; width: 100%; outline: none; font-size: 14px; font-weight: 500; }
+        .input-group { display: flex; align-items: center; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 0 8px; }
+        .input-group:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(33,136,255,0.1); }
         
-        .btn { padding: 5px 12px; border: 1px solid var(--border); background: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
+        #static-time { color: #888; font-family: monospace; font-size: 13px; padding-right: 8px; border-right: 1px solid #ddd; user-select: none; }
+        input[type="text"], input[type="number"] { border: none; background: transparent; padding: 6px 8px; outline: none; font-size: 13px; }
+        #filename { width: 100%; font-weight: 500; }
+
+        /* 功能条样式 */
+        .tool-item { display: flex; align-items: center; gap: 5px; }
+        .tool-label { font-size: 12px; color: #666; font-weight: bold; }
+        .search-input { width: 180px; }
+        .jump-input { width: 60px; }
+
+        .btn { padding: 4px 10px; border: 1px solid var(--border); background: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; }
         .btn:hover { background: #f3f4f6; }
-        .btn-confirm { background: #e7f3ff; color: var(--accent); border: 1px solid #cce5ff; font-weight: bold; }
-        .btn-primary { background: var(--accent); color: #fff; border: none; }
+        .btn-confirm { background: var(--accent); color: #fff; border: none; }
         .btn-save { background: #28a745; color: #fff; border: none; }
         
         /* 编辑器区域 */
         .main-stage { display: flex; flex: 1; overflow: hidden; }
         #toc-pane { width: 200px; border-right: 1px solid var(--border); overflow-y: auto; padding: 15px; background: #fff; font-size: 13px; }
         #workspace { flex: 1; position: relative; display: flex; flex-direction: column; background: #fff; }
-        .CodeMirror { flex: 1; height: 100% !important; font-family: 'Fira Code', monospace; font-size: 14px; }
-        
-        /* 快捷键提示 */
-        .hint-bar { padding: 4px 20px; font-size: 11px; color: #999; border-top: 1px solid #eee; background: #fff; }
+        .CodeMirror { flex: 1; height: 100% !important; font-family: 'Fira Code', 'Consolas', monospace; font-size: 14px; }
         
         #preview-pane { width: 0; overflow-y: auto; background: #fff; transition: width 0.3s ease; }
         #preview-pane.active { width: 45%; border-left: 1px solid var(--border); padding: 20px; }
@@ -45,14 +48,9 @@
     <script src="https://sucloudplus.github.io/assets/crypto-helper.js"></script>
     <script src="https://sucloudplus.github.io/assets/gist-helper.js"></script>
     <script src="https://sucloudplus.github.io/assets/blog-naming-helper.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/searchcursor.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/search.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/jump-to-line.min.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
@@ -60,15 +58,13 @@
 <header class="top-nav">
     <div class="nav-row-1">
         <button class="btn" onclick="location.href='index.html'">← 返回</button>
-        
         <div class="name-editor-wrapper">
-            <div class="name-editor">
+            <div class="input-group" style="flex:1">
                 <span id="static-time">载入中...</span>
                 <input type="text" id="filename" placeholder="文章标题...">
             </div>
-            <button class="btn btn-confirm" onclick="manualSave()" title="确定并保存标题修改">确定</button>
+            <button class="btn btn-confirm" onclick="manualSave()">确定修改</button>
         </div>
-
         <div style="margin-left: auto; display: flex; gap: 8px;">
             <button class="btn" onclick="exportFile('md')">导出 MD</button>
             <button class="btn" onclick="exportFile('txt')">导出 TXT</button>
@@ -76,13 +72,32 @@
             <button class="btn btn-save" onclick="manualSave()">立即保存</button>
         </div>
     </div>
+
+    <div class="nav-row-2">
+        <div class="tool-item">
+            <span class="tool-label">搜索内容:</span>
+            <div class="input-group">
+                <input type="text" id="search-keyword" class="search-input" placeholder="输入关键词..." onkeydown="if(event.keyCode==13) doSearch()">
+            </div>
+            <button class="btn" onclick="doSearch()">确定</button>
+        </div>
+
+        <div class="tool-item">
+            <span class="tool-label">跳转行号:</span>
+            <div class="input-group">
+                <input type="number" id="jump-line" class="jump-input" placeholder="行号" onkeydown="if(event.keyCode==13) doJump()">
+            </div>
+            <button class="btn" onclick="doJump()">确定</button>
+        </div>
+        
+        <div id="status-text" style="font-size: 11px; color: #999; margin-left: auto;">编辑器已就绪</div>
+    </div>
 </header>
 
 <div class="main-stage">
     <nav id="toc-pane"></nav>
     <main id="workspace">
         <textarea id="real-input"></textarea>
-        <div class="hint-bar">搜索: Ctrl+F | 替换: Ctrl+Shift+F | 跳转行: Alt+G</div>
     </main>
     <div id="preview-pane"></div>
 </div>
@@ -90,6 +105,7 @@
 <script>
     let cm, userConfig = null, articleInfo = { type: '', idPrefix: '', rawFileName: '' };
     let isDirty = false;
+    let lastSearchQuery = "", lastSearchCursor = null;
 
     window.onload = async function() {
         const params = new URLSearchParams(window.location.search);
@@ -112,18 +128,47 @@
             mode: 'markdown',
             lineNumbers: true,
             lineWrapping: true,
-            styleActiveLine: true,
-            keyMap: "default",
-            extraKeys: {
-                "Ctrl-S": function(instance) { manualSave(); },
-                "Cmd-S": function(instance) { manualSave(); },
-                "Alt-G": "jumpToLine", // 跳转行快捷键
-                "Ctrl-F": "findPersistent" // 持续搜索
-            }
+            styleActiveLine: true
         });
 
         cm.on('change', () => { isDirty = true; updateTOC(); });
         document.getElementById('filename').addEventListener('input', () => { isDirty = true; });
+    }
+
+    // --- 核心搜索功能 ---
+    function doSearch() {
+        const query = document.getElementById('search-keyword').value;
+        if (!query) return;
+
+        // 如果是新搜索，重置游标
+        if (query !== lastSearchQuery) {
+            lastSearchQuery = query;
+            lastSearchCursor = cm.getSearchCursor(query);
+        }
+
+        if (!lastSearchCursor.findNext()) {
+            // 查到底了，从头开始
+            lastSearchCursor = cm.getSearchCursor(query);
+            if (!lastSearchCursor.findNext()) {
+                alert("未找到内容");
+                return;
+            }
+        }
+
+        cm.setSelection(lastSearchCursor.from(), lastSearchCursor.to());
+        cm.scrollIntoView({from: lastSearchCursor.from(), to: lastSearchCursor.to()}, 150);
+        cm.focus();
+    }
+
+    // --- 核心跳转功能 ---
+    function doJump() {
+        const line = parseInt(document.getElementById('jump-line').value);
+        if (isNaN(line)) return;
+        
+        const actualLine = Math.max(1, Math.min(line, cm.lineCount())) - 1;
+        cm.setCursor(actualLine, 0);
+        cm.focus();
+        cm.scrollIntoView({line: actualLine, ch: 0}, 200);
     }
 
     async function loadAndDecrypt() {
@@ -151,13 +196,12 @@
             cm.setValue(content);
             updateTOC();
             isDirty = false;
-        } catch (err) {
-            console.error(err);
-        }
+        } catch (err) { console.error(err); }
     }
 
     async function performSave(isManual = false) {
         if (!isDirty && !isManual) return;
+        document.getElementById('status-text').innerText = "正在保存...";
         
         const currentTitle = document.getElementById('filename').value.trim() || "无题";
         let content = cm.getValue() || " ";
@@ -173,16 +217,16 @@
                 const encryptedTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
                 titleToEncode = encryptedTitle;
                 saveContent = await CryptoHelper.encrypt(content, userConfig.password);
+            } else {
+                // 公开文章标题也转 Base62 确保 Helper 解析一致性
+                titleToEncode = currentTitle; 
             }
 
-            // 使用 Base62 编码文件名中的标题部分
             const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
-            // 保持 ID (articleInfo.idPrefix) 不变
             const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, b62Title);
 
             const patchFiles = {};
             if (newFileName !== articleInfo.rawFileName) {
-                // 重命名逻辑
                 patchFiles[articleInfo.rawFileName] = { filename: newFileName, content: saveContent };
             } else {
                 patchFiles[articleInfo.rawFileName] = { content: saveContent };
@@ -191,13 +235,12 @@
             await GistHelper.update(token, gistId, "Save Blog", patchFiles);
             articleInfo.rawFileName = newFileName;
             isDirty = false;
-            console.log("保存成功");
+            document.getElementById('status-text').innerText = "已于 " + new Date().toLocaleTimeString() + " 保存";
         } catch (err) {
-            console.error("Save failed:", err);
+            document.getElementById('status-text').innerText = "保存失败";
         }
     }
 
-    // 辅助功能
     function exportFile(ext) {
         const title = document.getElementById('filename').value || '未命名';
         const content = cm.getValue();
@@ -223,7 +266,7 @@
             const m = line.match(/^(#{1,2})\s+(.*)/);
             if (m) {
                 const level = m[1].length;
-                html += `<div class="toc-item toc-h${level}" style="cursor:pointer;padding:4px 0" onclick="cm.setCursor(${i},0);cm.focus();">${m[2]}</div>`;
+                html += `<div style="cursor:pointer;padding:4px 0;font-size:12px;color:${level==1?'#333':'#666'}" onclick="cm.setCursor(${i},0);cm.focus();">${m[2]}</div>`;
             }
         });
         document.getElementById('toc-pane').innerHTML = html;
