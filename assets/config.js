@@ -4,3 +4,5 @@ const ENCRYPTED_CONFIG_bookmark = "U2FsdGVkX1/Q77LOAksNf7bj2ljy4ZkipnAmbOZvCiwUy
 const ENCRYPTED_CONFIG_note = "U2FsdGVkX186A7jxi4bQDmqV2/iyIsVtxlwFb8e25naiykM16nUdR4XSRndv+t80wT7rMXQLIqD5/faXuwaA05D/vxZnC7JnU2A8cILFHUOwvu3Z11kdHosgW6Hg6cIYG9lfN7O3I8er+tfseLJA6qd9Wqewv6xgmio1QIJmRn6sPBin7tUWQDu26esptGfCwSu96T32FtgNdGfmhTkrmd6/hDKwP4/oMhy4chLRRko/ICWGvqFbH6T93sSi5j2NP/Z2rKvYWYSeBkefGe9s6wKK7eO96/YuIW55JWPoOWpKYsI0jbeYF0eKAYxXKkU6brpLYzgoK0EXJVVf9GzOajtieM2eiaaFmhmPoNMcNqo2+CV6qWxDAnqaLZMNQR91";
 // 博客-公开
 const ENCRYPTED_CONFIG_BlogPublic = "45966e75d8492fe45df6dfd64ad8c1a3";
+// 博客-私密
+const ENCRYPTED_CONFIG_BlogPrivate = "";
