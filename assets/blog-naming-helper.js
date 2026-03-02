@@ -1,10 +1,10 @@
 /**
- * 博客文件名助手 - 格式：YYYYMMDDHHmmssSSS-[Base62编码标题].md
+ * 博客文件名助手 - 格式：YYYYMMDDHHmmssSSS-[Base62编码内容].md
  */
 const BlogNamingHelper = (function() {
     const CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    // 内部方法：字符串转 Base62
+    // 字符串转 Base62
     function _toBase62(text) {
         if (!text) return "";
         const bytes = new TextEncoder().encode(text);
@@ -19,7 +19,7 @@ const BlogNamingHelper = (function() {
         return res;
     }
 
-    // 内部方法：Base62 转字符串
+    // Base62 转字符串
     function _fromBase62(b62) {
         if (!b62) return "";
         let num = 0n;
@@ -39,31 +39,21 @@ const BlogNamingHelper = (function() {
     }
 
     return {
+        encodeBase62(text) { return _toBase62(text); },
+        decodeBase62(b62) { return _fromBase62(b62); },
+
         /**
-         * 生成精确到毫秒的文件名
-         * @param {string} title 标题
-         * @returns {string} 20240321131430627-xxxx.md
+         * 合成文件名
+         * @param {string} id 原始时间戳前缀
+         * @param {string} encodedTitle 已经是 Base62 编码后的标题串
          */
-        formatFileName(title) {
-            const now = new Date();
-            
-            // 构建精确时间戳：YYYYMMDDHHmmssSSS
-            const dateStr = now.getFullYear().toString() +
-                            (now.getMonth() + 1).toString().padStart(2, '0') +
-                            now.getDate().toString().padStart(2, '0') +
-                            now.getHours().toString().padStart(2, '0') +
-                            now.getMinutes().toString().padStart(2, '0') +
-                            now.getSeconds().toString().padStart(2, '0') +
-                            now.getMilliseconds().toString().padStart(3, '0');
-            
-            const encodedTitle = _toBase62(title);
-            return `${dateStr}-${encodedTitle}.md`;
+        formatFileName(id, encodedTitle) {
+            const timestamp = id || new Date().toISOString().replace(/[-T:Z.]/g, "").substring(0, 17);
+            return `${timestamp}-${encodedTitle}.md`;
         },
 
         /**
-         * 从文件名解析出精确时间和标题
-         * @param {string} fileName 
-         * @returns {object} {rawTime, title, formattedTime}
+         * 解析文件名
          */
         parseFileName(fileName) {
             const pureName = fileName.replace(/\.md$/, '');
@@ -76,7 +66,7 @@ const BlogNamingHelper = (function() {
             const rawTime = pureName.substring(0, firstDashIndex);
             const encodedPart = pureName.substring(firstDashIndex + 1);
             
-            // 尝试格式化时间以便显示：2024-03-21 13:14:30
+            // 尝试格式化时间显示
             let formattedTime = rawTime;
             if (rawTime.length >= 14) {
                 formattedTime = `${rawTime.substring(0,4)}-${rawTime.substring(4,6)}-${rawTime.substring(6,8)} ` +
@@ -86,6 +76,8 @@ const BlogNamingHelper = (function() {
             return {
                 rawTime: rawTime,
                 formattedTime: formattedTime,
+                // 这里返回的是 _fromBase62 后的字符串
+                // 如果是私有文章，这个字符串依然是加密的 Base64，需要进一步 Crypto 解密
                 title: _fromBase62(encodedPart)
             };
         }
