@@ -194,12 +194,12 @@ async function performSave(isManual = false) {
         const newFileName_Raw = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
         const newFileName = articleInfo.rawFileName.replace(/^(\d+).*$/, "$1") + "-" + newFileName_Raw.replace(/^\d+-/, "");
 
-console.log("currentTitle");
-console.log("saveTitle");
-console.log("content");
-console.log("saveContent");
-console.log("newFileName_Raw");
-console.log("newFileName");
+console.log("currentTitle",currentTitle);
+console.log("saveTitle",saveTitle);
+console.log("content",content);
+console.log("saveContent",saveContent);
+console.log("newFileName_Raw",newFileName_Raw);
+console.log("newFileName",newFileName);
 
         // 4. 构建 Patch 对象
         const patchFiles = {};
