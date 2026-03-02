@@ -5,13 +5,17 @@ const GistHelper = {
     _baseUrl: "https://api.github.com/gists",
 
     // 私有方法：构建请求头
-    _getHeaders(token) {
-        return {
-            "Authorization": `token ${token.trim()}`,
-            "Accept": "application/vnd.github.v3+json",
-            "Content-Type": "application/json"
-        };
-    },
+_getHeaders(token) {
+    const headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "Content-Type": "application/json"
+    };
+    // 只有当 token 存在时才添加认证头
+    if (token && token.trim()) {
+        headers["Authorization"] = `token ${token.trim()}`;
+    }
+    return headers;
+},
 
     /**
      * 根据描述获取第一个匹配的 Gist ID
@@ -72,4 +76,5 @@ const GistHelper = {
         if (!response.ok) throw new Error(`更新失败: ${response.status}`);
         return await response.json();
     }
+
 };
