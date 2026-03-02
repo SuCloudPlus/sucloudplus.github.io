@@ -163,44 +163,64 @@
         }
     }
 
-    async function performSave(isManual = false) {
-        if (!isDirty && !isManual) return;
-        setSaveStatus("正在保存...", "status-syncing");
+async function performSave(isManual = false) {
+    if (!isDirty && !isManual) return;
+    
+    // 1. 获取并清理标题
+    let currentTitle = document.getElementById('filename').value.trim() || "无题";
+    // 过滤掉 Gist 不允许的非法字符
+    currentTitle = currentTitle.replace(/[\\/:*?"<>|]/g, "_");
+    
+    let content = cm.getValue();
+    if (!content) content = " "; // Gist 不允许内容完全为空
 
-        try {
-            let currentTitle = document.getElementById('filename').value.trim() || "无题";
-            let content = cm.getValue();
-            const token = articleInfo.type === 'Private' ? userConfig.token : "";
-            const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
+    setSaveStatus("正在保存...", "status-syncing");
 
-            // 如果是私有，先加密
-            let saveTitle = currentTitle;
-            let saveContent = content;
-            if (articleInfo.type === 'Private') {
-                saveTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
-                saveContent = await CryptoHelper.encrypt(content, userConfig.password);
-            }
+    try {
+        const token = articleInfo.type === 'Private' ? userConfig.token : "";
+        const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
 
-            // 生成新文件名
-            const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
-            const patchFiles = {};
-
-            // 核心：处理重命名
-            if (newFileName !== articleInfo.rawFileName) {
-                patchFiles[articleInfo.rawFileName] = { content: null }; // 删除旧文件
-            }
-            patchFiles[newFileName] = { content: saveContent }; // 创建/更新新文件
-
-            await GistHelper.update(token, gistId, "Blog Edit", patchFiles);
-
-            articleInfo.rawFileName = newFileName;
-            originalTitle = currentTitle;
-            isDirty = false;
-            setSaveStatus("保存成功 " + new Date().toLocaleTimeString(), "status-success");
-        } catch (err) {
-            setSaveStatus("保存失败", "status-dirty");
+        // 2. 加密处理
+        let saveTitle = currentTitle;
+        let saveContent = content;
+        if (articleInfo.type === 'Private') {
+            saveTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
+            saveContent = await CryptoHelper.encrypt(content, userConfig.password);
         }
+
+        // 3. 计算新文件名
+        const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
+        
+        // 4. 构建 Patch 对象 (关键修复点)
+        const patchFiles = {};
+        if (newFileName !== articleInfo.rawFileName) {
+            // 如果文件名变了，使用 GitHub 推荐的重命名语法
+            patchFiles[articleInfo.rawFileName] = {
+                filename: newFileName,
+                content: saveContent
+            };
+        } else {
+            // 文件名没变，直接更新内容
+            patchFiles[articleInfo.rawFileName] = {
+                content: saveContent
+            };
+        }
+
+        // 5. 调用 API
+        await GistHelper.update(token, gistId, "Blog Edit", patchFiles);
+
+        // 6. 更新本地状态
+        articleInfo.rawFileName = newFileName;
+        originalTitle = currentTitle;
+        isDirty = false;
+        setSaveStatus("保存成功 " + new Date().toLocaleTimeString(), "status-success");
+        
+    } catch (err) {
+        console.error("Save Error Details:", err);
+        // 如果后台返回了具体错误信息，显示出来
+        setSaveStatus("保存失败: 422 (请检查标题是否有冲突)", "status-dirty");
     }
+}
 
     function setSaveStatus(text, className) {
         const el = document.getElementById('auto-save-status');
@@ -251,3 +271,4 @@
 </script>
 </body>
 </html>
+
