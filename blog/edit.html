@@ -8,35 +8,20 @@
         :root { --bg: #f8f9fb; --border: #e1e4e8; --accent: #2188ff; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        
         .top-nav { background: #fff; border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
         .nav-row-1 { display: flex; align-items: center; padding: 10px 20px; gap: 15px; border-bottom: 1px solid #f0f0f0; }
         .nav-row-2 { display: flex; align-items: center; padding: 8px 20px; gap: 20px; background: #fafbfc; border-bottom: 1px solid var(--border); }
-        
         .name-editor-wrapper { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 600px; }
         .input-group { display: flex; align-items: center; background: #fff; border: 1px solid var(--border); border-radius: 4px; padding: 0 8px; }
-        .input-group:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(33,136,255,0.1); }
-        
         #static-time { color: #888; font-family: monospace; font-size: 13px; padding-right: 8px; border-right: 1px solid #ddd; user-select: none; }
-        input[type="text"], input[type="number"] { border: none; background: transparent; padding: 6px 8px; outline: none; font-size: 13px; }
-        #filename { width: 100%; font-weight: 500; }
-
-        .tool-item { display: flex; align-items: center; gap: 5px; }
-        .tool-label { font-size: 12px; color: #666; font-weight: bold; }
-        .search-input { width: 180px; }
-        .jump-input { width: 60px; }
-
+        input[type="text"] { border: none; background: transparent; padding: 6px 8px; outline: none; font-size: 13px; width: 100%; font-weight: 500; }
         .btn { padding: 4px 10px; border: 1px solid var(--border); background: #fff; border-radius: 4px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; }
-        .btn:hover { background: #f3f4f6; }
-        .btn-confirm { background: var(--accent); color: #fff; border: none; }
         .btn-save { background: #28a745; color: #fff; border: none; }
-        
         .main-stage { display: flex; flex: 1; overflow: hidden; }
         #toc-pane { width: 200px; border-right: 1px solid var(--border); overflow-y: auto; padding: 15px; background: #fff; font-size: 13px; }
-        #workspace { flex: 1; position: relative; display: flex; flex-direction: column; background: #fff; }
-        .CodeMirror { flex: 1; height: 100% !important; font-family: 'Fira Code', 'Consolas', monospace; font-size: 14px; }
-        
-        #preview-pane { width: 0; overflow-y: auto; background: #fff; transition: width 0.3s ease; }
+        #workspace { flex: 1; position: relative; display: flex; flex-direction: column; }
+        .CodeMirror { flex: 1; height: 100% !important; font-size: 14px; }
+        #preview-pane { width: 0; overflow-y: auto; background: #fff; transition: width 0.3s; }
         #preview-pane.active { width: 45%; border-left: 1px solid var(--border); padding: 20px; }
     </style>
 
@@ -46,7 +31,6 @@
     <script src="https://sucloudplus.github.io/assets/blog-naming-helper.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/searchcursor.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
@@ -59,34 +43,14 @@
                 <span id="static-time">NEW</span>
                 <input type="text" id="filename" placeholder="文章标题...">
             </div>
-            <button class="btn btn-confirm" onclick="manualSave()">确定保存</button>
         </div>
         <div style="margin-left: auto; display: flex; gap: 8px;">
-            <button class="btn" onclick="exportFile('md')">导出 MD</button>
-            <button class="btn" onclick="exportFile('txt')">导出 TXT</button>
             <button class="btn btn-primary" onclick="togglePreview()">预览</button>
-            <button class="btn btn-save" onclick="manualSave()">保存</button>
+            <button class="btn btn-save" onclick="manualSave()">立即保存</button>
         </div>
     </div>
-
     <div class="nav-row-2">
-        <div class="tool-item">
-            <span class="tool-label">搜索内容:</span>
-            <div class="input-group">
-                <input type="text" id="search-keyword" class="search-input" placeholder="输入关键词..." onkeydown="if(event.keyCode==13) doSearch()">
-            </div>
-            <button class="btn" onclick="doSearch()">确定</button>
-        </div>
-
-        <div class="tool-item">
-            <span class="tool-label">跳转行号:</span>
-            <div class="input-group">
-                <input type="number" id="jump-line" class="jump-input" placeholder="行号" onkeydown="if(event.keyCode==13) doJump()">
-            </div>
-            <button class="btn" onclick="doJump()">确定</button>
-        </div>
-        
-        <div id="status-text" style="font-size: 11px; color: #999; margin-left: auto;">编辑器已就绪</div>
+        <div id="status-text" style="font-size: 11px; color: #999;">编辑器就绪</div>
     </div>
 </header>
 
@@ -95,13 +59,12 @@
     <main id="workspace">
         <textarea id="real-input"></textarea>
     </main>
-    <div id="preview-pane"></div>
+    <div id="preview-pane" class="markdown-body"></div>
 </div>
 
 <script>
     let cm, userConfig = null, articleInfo = { type: '', idPrefix: '', rawFileName: '' };
     let isDirty = false;
-    let lastSearchQuery = "", lastSearchCursor = null;
 
     window.onload = async function() {
         const params = new URLSearchParams(window.location.search);
@@ -109,72 +72,40 @@
         articleInfo.idPrefix = params.get('id');
 
         const session = getCookie("blog_session");
-        if (articleInfo.type === 'Private') {
-            if (!session) { location.href='index.html'; return; }
-            userConfig = JSON.parse(decodeURIComponent(session));
+        if (session) userConfig = JSON.parse(decodeURIComponent(session));
+
+        if (articleInfo.type === 'Private' && !userConfig) {
+            alert("请登录后再编辑私密文章");
+            location.href = 'index.html';
+            return;
         }
 
         initEditor();
         if (articleInfo.idPrefix !== 'new') {
             await loadAndDecrypt();
-        } else {
-            document.getElementById('static-time').innerText = "NEW";
-            document.getElementById('status-text').innerText = "新文章模式";
         }
         setInterval(() => performSave(false), 30000);
     };
 
     function initEditor() {
         cm = CodeMirror.fromTextArea(document.getElementById('real-input'), {
-            mode: 'markdown',
-            lineNumbers: true,
-            lineWrapping: true,
-            styleActiveLine: true
+            mode: 'markdown', lineNumbers: true, lineWrapping: true, styleActiveLine: true
         });
-
         cm.on('change', () => { isDirty = true; updateTOC(); });
-        document.getElementById('filename').addEventListener('input', () => { isDirty = true; });
-    }
-
-    function doSearch() {
-        const query = document.getElementById('search-keyword').value;
-        if (!query) return;
-        if (query !== lastSearchQuery) {
-            lastSearchQuery = query;
-            lastSearchCursor = cm.getSearchCursor(query);
-        }
-        if (!lastSearchCursor.findNext()) {
-            lastSearchCursor = cm.getSearchCursor(query);
-            if (!lastSearchCursor.findNext()) { alert("未找到内容"); return; }
-        }
-        cm.setSelection(lastSearchCursor.from(), lastSearchCursor.to());
-        cm.scrollIntoView({from: lastSearchCursor.from(), to: lastSearchCursor.to()}, 150);
-        cm.focus();
-    }
-
-    function doJump() {
-        const line = parseInt(document.getElementById('jump-line').value);
-        if (isNaN(line)) return;
-        const actualLine = Math.max(1, Math.min(line, cm.lineCount())) - 1;
-        cm.setCursor(actualLine, 0);
-        cm.focus();
-        cm.scrollIntoView({line: actualLine, ch: 0}, 200);
+        document.getElementById('filename').addEventListener('input', () => isDirty = true);
     }
 
     async function loadAndDecrypt() {
         try {
-            const token = articleInfo.type === 'Private' ? userConfig.token : "";
+            const token = userConfig ? userConfig.token : ""; // 读取时如果有 token 则带上
             const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
-
             const data = await GistHelper.get(token, gistId);
             const fileName = Object.keys(data.files).find(n => n.startsWith(articleInfo.idPrefix));
-            if (!fileName) return; // 新文件找不到是正常的
             
+            if (!fileName) return;
             articleInfo.rawFileName = fileName;
             const nameObj = BlogNamingHelper.parseFileName(fileName);
-            
-            let title = nameObj.title;
-            let content = data.files[fileName].content;
+            let title = nameObj.title, content = data.files[fileName].content;
 
             if (articleInfo.type === 'Private') {
                 title = await CryptoHelper.decrypt(title, userConfig.password);
@@ -184,89 +115,72 @@
             document.getElementById('static-time').innerText = articleInfo.idPrefix;
             document.getElementById('filename').value = title;
             cm.setValue(content);
-            updateTOC();
             isDirty = false;
         } catch (err) { console.error("加载失败:", err); }
     }
 
     async function performSave(isManual = false) {
-    if (!isDirty && !isManual) return;
-    
-    // --- 核心修正点：必须拿到 Token 才能保存 ---
-    const session = getCookie("blog_session");
-    if (!session) {
-        alert("登录已过期或未登录，无法保存！请重新从首页登录。");
-        return;
-    }
-    const authData = JSON.parse(decodeURIComponent(session));
-    const token = authData.token; // 始终使用登录后的 Token 进行写入操作
-    // ----------------------------------------
-
-    const currentTitle = document.getElementById('filename').value.trim() || "无题";
-    let content = cm.getValue() || " ";
-    document.getElementById('status-text').innerText = "正在保存...";
-
-    try {
-        // 根据类型选择目标 Gist ID
-        const gistId = articleInfo.type === 'Private' ? authData.gistId : ENCRYPTED_CONFIG_BlogPublic;
-
-        let titleToEncode = currentTitle;
-        let saveContent = content;
-
-        // 如果是私密类型，执行加密
-        if (articleInfo.type === 'Private') {
-            const encryptedTitle = await CryptoHelper.encrypt(currentTitle, authData.password);
-            titleToEncode = encryptedTitle;
-            saveContent = await CryptoHelper.encrypt(content, authData.password);
-        }
-
-        // 处理 ID
-        let currentId = articleInfo.idPrefix;
-        if (currentId === 'new') {
-            currentId = BlogNamingHelper.generateTimestampID();
-            articleInfo.idPrefix = currentId;
-            document.getElementById('static-time').innerText = currentId;
-        }
-
-        const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
-        const newFileName = BlogNamingHelper.formatFileName(currentId, b62Title);
-
-        const patchFiles = {};
-        // 如果文件名变了（比如改了标题），需要删除旧文件创建新文件
-        if (articleInfo.rawFileName && newFileName !== articleInfo.rawFileName) {
-            patchFiles[articleInfo.rawFileName] = { content: null }; // 显式删除旧文件
-            patchFiles[newFileName] = { content: saveContent };
-        } else {
-            patchFiles[newFileName] = { content: saveContent };
-        }
-
-        // 注意：这里传入的是从 session 拿到的 token
-        await GistHelper.update(token, gistId, "Save Blog", patchFiles);
+        if (!isDirty && !isManual) return;
         
-        articleInfo.rawFileName = newFileName;
-        isDirty = false;
-        document.getElementById('status-text').innerText = "已于 " + new Date().toLocaleTimeString() + " 保存";
-        
-        if (window.location.search.includes('id=new')) {
-            const newUrl = `?id=${currentId}&type=${articleInfo.type}`;
-            window.history.replaceState(null, '', newUrl);
+        // 核心：保存必须有 Token
+        const session = getCookie("blog_session");
+        if (!session) {
+            document.getElementById('status-text').innerText = "错误：未登录无法保存";
+            if(isManual) alert("请先登录！");
+            return;
         }
-    } catch (err) {
-        console.error("保存失败详情:", err);
-        document.getElementById('status-text').innerText = "保存失败: " + err.message;
-    }
-}
+        const authData = JSON.parse(decodeURIComponent(session));
+        const token = authData.token;
 
-    function exportFile(ext) {
-        const title = document.getElementById('filename').value || '未命名';
-        const content = cm.getValue();
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${articleInfo.idPrefix}-${title}.${ext}`;
-        a.click();
-        URL.revokeObjectURL(url);
+        const currentTitle = document.getElementById('filename').value.trim() || "无题";
+        let content = cm.getValue() || " ";
+        document.getElementById('status-text').innerText = "正在保存...";
+
+        try {
+            const gistId = articleInfo.type === 'Private' ? authData.gistId : ENCRYPTED_CONFIG_BlogPublic;
+            let titleToEncode = currentTitle, saveContent = content;
+
+            if (articleInfo.type === 'Private') {
+                titleToEncode = await CryptoHelper.encrypt(currentTitle, authData.password);
+                saveContent = await CryptoHelper.encrypt(content, authData.password);
+            }
+
+            // ID 处理
+            if (articleInfo.idPrefix === 'new') {
+                articleInfo.idPrefix = BlogNamingHelper.generateTimestampID();
+                document.getElementById('static-time').innerText = articleInfo.idPrefix;
+            }
+
+            const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
+            const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, b62Title);
+
+            // 【重要】构造符合 GitHub API 要求的 patch 对象
+            const patchFiles = {};
+            
+            // 场景 A: 如果标题改了（文件名变了），且原文件名存在，则执行“删除+创建”
+            if (articleInfo.rawFileName && articleInfo.rawFileName !== newFileName) {
+                patchFiles[articleInfo.rawFileName] = null; // 显式删除旧文件
+                patchFiles[newFileName] = { content: saveContent };
+            } 
+            // 场景 B: 新文章或文件名未改变，直接写入/更新
+            else {
+                patchFiles[newFileName] = { content: saveContent };
+            }
+
+            await GistHelper.update(token, gistId, "Save Blog", patchFiles);
+            
+            articleInfo.rawFileName = newFileName;
+            isDirty = false;
+            document.getElementById('status-text').innerText = "已保存 " + new Date().toLocaleTimeString();
+            
+            if (window.location.search.includes('id=new')) {
+                const newUrl = `?id=${articleInfo.idPrefix}&type=${articleInfo.type}`;
+                window.history.replaceState(null, '', newUrl);
+            }
+        } catch (err) {
+            console.error("保存失败详情:", err);
+            document.getElementById('status-text').innerText = "保存失败: " + err.message;
+        }
     }
 
     function togglePreview() {
@@ -281,8 +195,7 @@
         lines.forEach((line, i) => {
             const m = line.match(/^(#{1,2})\s+(.*)/);
             if (m) {
-                const level = m[1].length;
-                html += `<div style="cursor:pointer;padding:4px 0;font-size:12px;color:${level==1?'#333':'#666'}" onclick="cm.setCursor(${i},0);cm.focus();">${m[2]}</div>`;
+                html += `<div style="cursor:pointer;padding:4px 0;" onclick="cm.setCursor(${i},0);cm.focus();">${m[2]}</div>`;
             }
         });
         document.getElementById('toc-pane').innerHTML = html;
@@ -298,4 +211,3 @@
 </script>
 </body>
 </html>
-
