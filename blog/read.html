@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>阅读文章 - 我的加密博客</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.2.0/github-markdown.min.css">
+    <style>
+        :root { --primary: #2188ff; --border: #e1e4e8; --bg: #f6f8fa; }
+        body { margin: 0; font-family: -apple-system, sans-serif; background: var(--bg); display: flex; flex-direction: column; min-height: 100vh; }
+        
+        /* 导航栏 */
+        header { 
+            background: white; border-bottom: 1px solid var(--border); 
+            padding: 10px 20px; display: flex; align-items: center; 
+            position: sticky; top: 0; z-index: 100;
+        }
+        .nav-container { max-width: 1000px; margin: 0 auto; width: 100%; display: flex; align-items: center; justify-content: space-between; }
+        .back-btn { cursor: pointer; background: none; border: 1px solid var(--border); padding: 5px 12px; border-radius: 4px; font-size: 14px; }
+        .back-btn:hover { background: #f3f4f6; }
+        
+        /* 主体布局 */
+        .main-content { max-width: 1000px; margin: 20px auto; display: flex; gap: 30px; width: 100%; padding: 0 20px; box-sizing: border-box; }
+        
+        /* 左侧目录 */
+        #toc-pane { width: 220px; position: sticky; top: 80px; height: fit-content; max-height: 80vh; overflow-y: auto; font-size: 14px; }
+        .toc-item { padding: 5px 0; color: #666; cursor: pointer; border-left: 2px solid transparent; padding-left: 10px; }
+        .toc-item:hover { color: var(--primary); }
+        .toc-h1 { font-weight: bold; }
+        .toc-h2 { margin-left: 15px; font-size: 0.9em; }
+
+        /* 文章主体 */
+        #article-container { flex: 1; background: white; padding: 40px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.05); min-width: 0; }
+        .article-meta { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .article-title { margin: 0 0 10px 0; font-size: 32px; }
+        .article-info-line { font-size: 13px; color: #888; display: flex; gap: 15px; }
+        
+        .btn-edit { background: var(--primary); color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer; text-decoration: none; font-size: 14px; }
+        
+        @media (max-width: 768px) {
+            .main-content { flex-direction: column; }
+            #toc-pane { display: none; }
+        }
+    </style>
+
+    <script src="https://sucloudplus.github.io/assets/config.js"></script> 
+    <script src="https://sucloudplus.github.io/assets/crypto-helper.js"></script>
+    <script src="https://sucloudplus.github.io/assets/gist-helper.js"></script>
+    <script src="https://sucloudplus.github.io/assets/blog-naming-helper.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+<header>
+    <div class="nav-container">
+        <button class="back-btn" onclick="location.href='index.html'">← 返回首页</button>
+        <div id="action-area">
+            <button id="edit-btn" class="btn-edit" style="display:none" onclick="goToEdit()">编辑文章</button>
+        </div>
+    </div>
+</header>
+
+<div class="main-content">
+    <aside id="toc-pane"></aside>
+
+    <article id="article-container">
+        <div class="article-meta">
+            <h1 id="render-title" class="article-title">正在载入...</h1>
+            <div class="article-info-line">
+                <span id="render-time"></span>
+                <span id="render-type"></span>
+            </div>
+        </div>
+        <div id="render-content" class="markdown-body">
+            内容加载中，请稍候...
+        </div>
+    </article>
+</div>
+
+<script>
+    let articleInfo = { id: '', type: '', title: '' };
+    let userConfig = null;
+
+    window.onload = async function() {
+        const params = new URLSearchParams(window.location.search);
+        articleInfo.id = params.get('id');
+        articleInfo.type = params.get('type') || 'Public';
+
+        if (!articleInfo.id) {
+            location.href = 'index.html';
+            return;
+        }
+
+        // 检查登录状态
+        const session = getCookie("blog_session");
+        if (session) {
+            userConfig = JSON.parse(decodeURIComponent(session));
+            document.getElementById('edit-btn').style.display = 'block';
+        } else if (articleInfo.type === 'Private') {
+            alert("请先登录以访问私密文章");
+            location.href = 'index.html';
+            return;
+        }
+
+        await loadArticle();
+    };
+
+    async function loadArticle() {
+        try {
+            const token = articleInfo.type === 'Private' ? userConfig.token : "";
+            const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
+
+            const data = await GistHelper.get(token, gistId);
+            const fileName = Object.keys(data.files).find(n => n.startsWith(articleInfo.id));
+            
+            if (!fileName) throw new Error("文章不存在");
+
+            const nameObj = BlogNamingHelper.parseFileName(fileName);
+            let rawContent = data.files[fileName].content;
+            let displayTitle = nameObj.title;
+
+            // 解密逻辑
+            if (articleInfo.type === 'Private') {
+                displayTitle = await CryptoHelper.decrypt(displayTitle, userConfig.password);
+                rawContent = await CryptoHelper.decrypt(rawContent, userConfig.password);
+            }
+
+            // 渲染
+            document.title = `${displayTitle} - 阅读`;
+            document.getElementById('render-title').innerText = displayTitle;
+            document.getElementById('render-time').innerText = "发布时间: " + nameObj.formattedTime;
+            document.getElementById('render-type').innerText = "属性: " + (articleInfo.type === 'Private' ? '私密' : '公开');
+            
+            const htmlContent = marked.parse(rawContent);
+            document.getElementById('render-content').innerHTML = htmlContent;
+
+            generateTOC();
+        } catch (err) {
+            document.getElementById('render-content').innerHTML = `<p style="color:red">加载失败: ${err.message}</p>`;
+        }
+    }
+
+    function generateTOC() {
+        const content = document.getElementById('render-content');
+        const toc = document.getElementById('toc-pane');
+        const headings = content.querySelectorAll('h1, h2, h3');
+        
+        let html = '<p style="font-weight:bold; margin-bottom:10px;">目录</p>';
+        headings.forEach((h, i) => {
+            const id = "heading-" + i;
+            h.setAttribute('id', id);
+            const level = h.tagName.toLowerCase();
+            html += `<div class="toc-item toc-${level}" onclick="document.getElementById('${id}').scrollIntoView({behavior:'smooth'})">${h.innerText}</div>`;
+        });
+        toc.innerHTML = html;
+    }
+
+    function goToEdit() {
+        location.href = `edit.html?id=${articleInfo.id}&type=${articleInfo.type}`;
+    }
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+</script>
+
+</body>
+</html>
