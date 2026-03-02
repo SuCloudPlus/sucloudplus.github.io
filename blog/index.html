@@ -5,21 +5,49 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的加密博客</title>
     <style>
-        body { font-family: sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f7f6; }
-        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
+        :root { --primary: #2188ff; --danger: #d32f2f; --border: #e1e4e8; }
+        body { font-family: -apple-system, sans-serif; background: #f6f8fa; margin: 0; padding: 20px; color: #24292e; }
+        header { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto 20px; position: relative; }
         
-        /* 页签样式 */
-        .tabs { display: none; margin: 20px 0; border-bottom: 1px solid #ccc; }
-        .tab-btn { cursor: pointer; padding: 10px 20px; border: none; background: none; font-size: 16px; outline: none; }
-        .tab-btn.active { border-bottom: 3px solid #333; font-weight: bold; }
+        /* 浮动登录框 */
+        .login-panel { 
+            display: none; position: absolute; top: 50px; right: 0; 
+            background: white; padding: 15px; border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; border: 1px solid var(--border);
+        }
+        .login-panel input { padding: 6px; border: 1px solid var(--border); border-radius: 4px; outline: none; }
 
-        .post-card { background: white; padding: 15px; margin: 15px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .post-time { font-size: 0.85em; color: #888; }
-        .btn { cursor: pointer; padding: 5px 15px; border-radius: 4px; border: 1px solid #333; background: #333; color: #fff; }
-        .login-box { display: none; background: #eee; padding: 20px; border-radius: 8px; margin: 10px 0; }
-        .status-tag { font-size: 0.7em; padding: 2px 6px; border-radius: 3px; margin-left: 5px; }
+        /* 页签 */
+        .tabs { display: none; max-width: 900px; margin: 0 auto 10px; gap: 10px; }
+        .tab-btn { cursor: pointer; padding: 8px 16px; border: none; background: #eee; border-radius: 6px; font-size: 14px; }
+        .tab-btn.active { background: var(--primary); color: white; }
+
+        /* 文章卡片 */
+        .post-list { max-width: 900px; margin: 0 auto; }
+        .post-card { 
+            background: white; border: 1px solid var(--border); border-radius: 6px; 
+            padding: 12px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .post-main { flex: 1; min-width: 0; } /* 确保文字不撑开容器 */
+        .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+        .post-title { font-size: 16px; font-weight: 600; margin: 0; color: #0366d6; }
+        .post-time { font-size: 12px; color: #6a737d; white-space: nowrap; }
+        .post-excerpt { 
+            font-size: 13px; color: #586069; 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+        }
+
+        /* 标签 */
+        .status-tag { font-size: 11px; padding: 2px 6px; border-radius: 10px; white-space: nowrap; }
         .status-public { background: #e1f5fe; color: #01579b; }
         .status-private { background: #fff3e0; color: #e65100; }
+
+        /* 按钮 */
+        .btn { cursor: pointer; padding: 4px 12px; border-radius: 4px; border: 1px solid var(--border); background: #fff; font-size: 13px; }
+        .btn-primary { background: var(--primary); color: #fff; border: none; }
+        .btn-danger { color: var(--danger); border-color: var(--danger); margin-left: 5px; }
+        .btn-danger:hover { background: #fff5f5; }
+        .post-actions { display: flex; gap: 5px; margin-left: 15px; }
     </style>
 
     <script src="https://sucloudplus.github.io/assets/config.js"></script> 
@@ -30,32 +58,34 @@
 <body>
 
 <header>
-    <h1>博客</h1>
+    <h2 style="margin:0">📖 我的博客</h2>
     <div id="auth-area">
-        <button id="login-nav-btn" class="btn" onclick="toggleLoginBox()">登录</button>
-        <span id="user-info" style="display:none">
-            <span id="user-display">管理员</span>
-            <button class="btn" onclick="logout()" style="background:#d32f2f; border:none; margin-left:10px;">退出</button>
-        </span>
+        <button id="login-nav-btn" class="btn btn-primary" onclick="toggleLoginBox()">管理登录</button>
+        <div id="user-info" style="display:none">
+            <span style="font-size:14px; color:#666">管理员模式</span>
+            <button class="btn btn-danger" onclick="logout()">退出</button>
+        </div>
+    </div>
+
+    <div id="login-box" class="login-panel">
+        <input type="password" id="password-input" placeholder="输入访问密码..." onkeydown="if(event.keyCode==13) login()">
+        <button class="btn btn-primary" onclick="login()">确定</button>
     </div>
 </header>
 
-<div id="login-box" class="login-box">
-    <input type="password" id="password-input" placeholder="输入解密密码...">
-    <button class="btn" onclick="login()">解密并登录</button>
-</div>
-
 <div id="blog-tabs" class="tabs">
-    <button id="tab-public" class="tab-btn active" onclick="switchTab('public')">公开文章</button>
-    <button id="tab-private" class="tab-btn" onclick="switchTab('private')">私密文章</button>
+    <button id="tab-public" class="tab-btn active" onclick="switchTab('public')">公开</button>
+    <button id="tab-private" class="tab-btn" onclick="switchTab('private')">私密</button>
+    <button class="btn" onclick="location.href='edit.html?id=new&type=Public'" style="margin-left:auto">+ 新建文章</button>
 </div>
 
-<div id="posts-container">
-    <p>正在加载内容...</p>
+<div id="posts-container" class="post-list">
+    <p style="text-align:center; color:#999;">正在加载内容...</p>
 </div>
 
 <script>
-    let currentUserConfig = null; // 存储解密后的 Token 和 ID
+    let currentUserConfig = null;
+    let currentTab = 'public';
 
     function getCookie(name) {
         const value = `; ${document.cookie}`;
@@ -70,35 +100,28 @@
                 currentUserConfig = JSON.parse(decodeURIComponent(savedSession));
                 showUserInfo();
                 document.getElementById('blog-tabs').style.display = 'flex';
-                // 默认登录后显示私密文章页签
                 switchTab('private');
-            } catch (e) {
-                loadPublicBlog();
-            }
+            } catch (e) { loadPublicBlog(); }
         } else {
             loadPublicBlog();
         }
     };
 
-    // 页签切换逻辑
     async function switchTab(type) {
-        // UI 切换
+        currentTab = type;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(`tab-${type}`).classList.add('active');
-        document.getElementById('posts-container').innerHTML = "<p>正在加载...</p>";
+        document.getElementById('posts-container').innerHTML = "<p style='text-align:center;'>读取数据中...</p>";
 
         if (type === 'public') {
-            await loadPublicBlog();
-        } else {
-            if (currentUserConfig) {
-                await loadBlog(currentUserConfig.gistId, currentUserConfig.token, true, currentUserConfig.password);
-            }
+            await loadBlog(ENCRYPTED_CONFIG_BlogPublic, "", false, null);
+        } else if (currentUserConfig) {
+            await loadBlog(currentUserConfig.gistId, currentUserConfig.token, true, currentUserConfig.password);
         }
     }
 
     async function loadPublicBlog() {
-        const publicGistId = typeof ENCRYPTED_CONFIG_BlogPublic !== 'undefined' ? ENCRYPTED_CONFIG_BlogPublic : "";
-        await loadBlog(publicGistId, "", false, null);
+        await loadBlog(ENCRYPTED_CONFIG_BlogPublic, "", false, null);
     }
 
     async function loadBlog(gistId, token, isPrivate, password) {
@@ -108,11 +131,10 @@
             const files = data.files;
             container.innerHTML = ""; 
 
-            // 按文件名（包含时间戳）倒序排序
-            const fileList = Object.keys(files).sort().reverse(); 
+            const fileList = Object.keys(files).filter(k => k.endsWith('.md')).sort().reverse(); 
 
             if (fileList.length === 0) {
-                container.innerHTML = "<p>当前分类下尚无文章。</p>";
+                container.innerHTML = "<p style='text-align:center; color:#999;'>空空如也</p>";
                 return;
             }
 
@@ -120,25 +142,31 @@
                 const info = BlogNamingHelper.parseFileName(fileName);
                 let displayTitle = info.title;
 
-                // 如果是私密模式，解密文章标题
                 if (isPrivate && password) {
                     try {
                         displayTitle = await CryptoHelper.decrypt(info.title, password);
-                    } catch (e) {
-                        console.warn("标题解密失败:", info.title);
-                    }
+                    } catch (e) { displayTitle = "[解密失败]"; }
                 }
                 
+                const excerpt = files[fileName].content.substring(0, 100).replace(/[#*`]/g, '');
+                const typeLabel = isPrivate ? 'private' : 'public';
+                const typeText = isPrivate ? '私密' : '公开';
+
                 const div = document.createElement('div');
                 div.className = 'post-card';
-                const tag = isPrivate 
-                    ? `<span class="status-tag status-private">私密</span>` 
-                    : `<span class="status-tag status-public">公开</span>`;
-
                 div.innerHTML = `
-                    <div class="post-time">${info.formattedTime} ${tag}</div>
-                    <h3>${displayTitle}</h3>
-                    <div class="post-excerpt">${files[fileName].content.substring(0, 100)}...</div>
+                    <div class="post-main">
+                        <div class="post-header">
+                            <h3 class="post-title">${displayTitle}</h3>
+                            <span class="status-tag status-${typeLabel}">${typeText}</span>
+                            <span class="post-time">${info.formattedTime}</span>
+                        </div>
+                        <div class="post-excerpt">${excerpt}</div>
+                    </div>
+                    <div class="post-actions">
+                        <button class="btn" onclick="editPost('${info.rawTime}', '${isPrivate?'Private':'Public'}')">编辑</button>
+                        <button class="btn btn-danger" onclick="deletePost('${fileName}', '${isPrivate}')">删除</button>
+                    </div>
                 `;
                 container.appendChild(div);
             }
@@ -149,28 +177,42 @@
 
     async function login() {
         const password = document.getElementById('password-input').value;
-        if (!password) return alert("请输入密码");
+        if (!password) return;
 
         try {
-            // 分别解密配置
             const gistId = await CryptoHelper.decrypt(ENCRYPTED_CONFIG_BlogPrivate_gistid, password);
             const token = await CryptoHelper.decrypt(ENCRYPTED_CONFIG_BlogPrivate_token, password);
-
             currentUserConfig = { gistId, token, password };
 
-            // 存入 Cookie
             const d = new Date();
             d.setTime(d.getTime() + (7*24*60*60*1000));
             document.cookie = `blog_session=${encodeURIComponent(JSON.stringify(currentUserConfig))}; expires=${d.toUTCString()}; path=/`;
 
-            // UI 更新
             toggleLoginBox();
             showUserInfo();
             document.getElementById('blog-tabs').style.display = 'flex';
             switchTab('private');
-        } catch (err) {
-            alert("密码错误或配置解密失败！");
-        }
+        } catch (err) { alert("解密失败，密码可能错误"); }
+    }
+
+    function editPost(id, type) {
+        location.href = `edit.html?id=${id}&type=${type}`;
+    }
+
+    async function deletePost(fileName, isPrivate) {
+        if (!confirm("确定要删除这篇文章吗？操作不可撤销。")) return;
+        try {
+            const token = isPrivate === 'true' ? currentUserConfig.token : "";
+            const gistId = isPrivate === 'true' ? currentUserConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
+            
+            // GitHub Gist 删除文件的逻辑是把 content 置为 null
+            const patchFiles = {};
+            patchFiles[fileName] = null;
+            
+            await GistHelper.update(token, gistId, "Delete Post", patchFiles);
+            alert("删除成功");
+            switchTab(currentTab);
+        } catch (err) { alert("删除失败: " + err.message); }
     }
 
     function logout() {
@@ -181,6 +223,7 @@
     function toggleLoginBox() {
         const box = document.getElementById('login-box');
         box.style.display = box.style.display === 'block' ? 'none' : 'block';
+        if(box.style.display === 'block') document.getElementById('password-input').focus();
     }
 
     function showUserInfo() {
