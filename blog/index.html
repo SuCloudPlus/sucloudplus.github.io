@@ -5,49 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的加密博客</title>
     <style>
-        :root { --primary: #2188ff; --danger: #d32f2f; --border: #e1e4e8; }
-        body { font-family: -apple-system, sans-serif; background: #f6f8fa; margin: 0; padding: 20px; color: #24292e; }
-        header { display: flex; justify-content: space-between; align-items: center; max-width: 900px; margin: 0 auto 20px; position: relative; }
+        :root { --primary: #2188ff; --danger: #d32f2f; --border: #e1e4e8; --text-main: #24292e; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: #f6f8fa; margin: 0; padding: 20px; color: var(--text-main); }
         
+        /* 布局容器 */
+        .container { max-width: 900px; margin: 0 auto; position: relative; }
+        
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .site-title { font-size: 28px; font-weight: 800; margin: 0; letter-spacing: -0.5px; }
+
         /* 浮动登录框 */
         .login-panel { 
             display: none; position: absolute; top: 50px; right: 0; 
             background: white; padding: 15px; border-radius: 8px; 
             box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 100; border: 1px solid var(--border);
         }
-        .login-panel input { padding: 6px; border: 1px solid var(--border); border-radius: 4px; outline: none; }
+        .login-panel input { padding: 8px; border: 1px solid var(--border); border-radius: 4px; outline: none; width: 180px; }
 
-        /* 页签 */
-        .tabs { display: none; max-width: 900px; margin: 0 auto 10px; gap: 10px; }
-        .tab-btn { cursor: pointer; padding: 8px 16px; border: none; background: #eee; border-radius: 6px; font-size: 14px; }
-        .tab-btn.active { background: var(--primary); color: white; }
+        /* 页签与操作 */
+        .nav-bar { display: flex; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; gap: 10px; }
+        .tabs { display: none; gap: 5px; }
+        .tab-btn { cursor: pointer; padding: 8px 16px; border: none; background: transparent; border-radius: 6px; font-size: 15px; color: #586069; }
+        .tab-btn.active { background: #fff; color: var(--primary); font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
 
         /* 文章卡片 */
-        .post-list { max-width: 900px; margin: 0 auto; }
         .post-card { 
-            background: white; border: 1px solid var(--border); border-radius: 6px; 
-            padding: 12px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+            background: white; border: 1px solid var(--border); border-radius: 8px; 
+            padding: 20px; margin-bottom: 15px; display: flex; justify-content: space-between; 
+            align-items: center; transition: transform 0.1s, box-shadow 0.1s;
         }
-        .post-main { flex: 1; min-width: 0; } /* 确保文字不撑开容器 */
-        .post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-        .post-title { font-size: 16px; font-weight: 600; margin: 0; color: #0366d6; }
-        .post-time { font-size: 12px; color: #6a737d; white-space: nowrap; }
+        .post-card:hover { border-color: var(--primary); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        
+        .post-main { flex: 1; min-width: 0; cursor: pointer; }
+        .post-header { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+        .post-title { font-size: 20px; font-weight: 700; margin: 0; color: #1f2328; line-height: 1.4; }
+        .post-time { font-size: 13px; color: #636c76; white-space: nowrap; }
+        
         .post-excerpt { 
-            font-size: 13px; color: #586069; 
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+            font-size: 14px; color: #57606a; line-height: 1.5;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; 
         }
 
         /* 标签 */
-        .status-tag { font-size: 11px; padding: 2px 6px; border-radius: 10px; white-space: nowrap; }
-        .status-public { background: #e1f5fe; color: #01579b; }
-        .status-private { background: #fff3e0; color: #e65100; }
+        .status-tag { font-size: 11px; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+        .status-public { background: #dafbe1; color: #1a7f37; }
+        .status-private { background: #fff8c5; color: #9a6700; }
 
-        /* 按钮 */
-        .btn { cursor: pointer; padding: 4px 12px; border-radius: 4px; border: 1px solid var(--border); background: #fff; font-size: 13px; }
+        /* 按钮组件 */
+        .btn { cursor: pointer; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: #fff; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; }
+        .btn:hover { background: #f3f4f6; }
         .btn-primary { background: var(--primary); color: #fff; border: none; }
-        .btn-danger { color: var(--danger); border-color: var(--danger); margin-left: 5px; }
-        .btn-danger:hover { background: #fff5f5; }
-        .post-actions { display: flex; gap: 5px; margin-left: 15px; }
+        .btn-primary:hover { background: #0969da; }
+        .btn-danger { color: var(--danger); }
+        .post-actions { display: flex; gap: 8px; margin-left: 20px; }
     </style>
 
     <script src="https://sucloudplus.github.io/assets/config.js"></script> 
@@ -57,30 +67,33 @@
 </head>
 <body>
 
-<header>
-    <h2 style="margin:0">📖 我的博客</h2>
-    <div id="auth-area">
-        <button id="login-nav-btn" class="btn btn-primary" onclick="toggleLoginBox()">管理登录</button>
-        <div id="user-info" style="display:none">
-            <span style="font-size:14px; color:#666">管理员模式</span>
-            <button class="btn btn-danger" onclick="logout()">退出</button>
+<div class="container">
+    <header>
+        <h1 class="site-title">我的个人博客</h1>
+        <div id="auth-area">
+            <button id="login-nav-btn" class="btn btn-primary" onclick="toggleLoginBox()">管理登录</button>
+            <div id="user-info" style="display:none">
+                <button class="btn btn-danger" onclick="logout()">安全退出</button>
+            </div>
         </div>
+
+        <div id="login-box" class="login-panel">
+            <input type="password" id="password-input" placeholder="输入访问密码..." onkeydown="if(event.keyCode==13) login()">
+            <button class="btn btn-primary" onclick="login()" style="margin-left:5px">确定</button>
+        </div>
+    </header>
+
+    <div class="nav-bar">
+        <div id="blog-tabs" class="tabs">
+            <button id="tab-public" class="tab-btn active" onclick="switchTab('public')">公开文章</button>
+            <button id="tab-private" class="tab-btn" onclick="switchTab('private')">私密文章</button>
+        </div>
+        <button id="new-post-btn" class="btn btn-primary" onclick="askNewPost()" style="margin-left:auto; display:none">+ 新建文章</button>
     </div>
 
-    <div id="login-box" class="login-panel">
-        <input type="password" id="password-input" placeholder="输入访问密码..." onkeydown="if(event.keyCode==13) login()">
-        <button class="btn btn-primary" onclick="login()">确定</button>
+    <div id="posts-container">
+        <p style="text-align:center; color:#666; padding: 50px 0;">数据加载中...</p>
     </div>
-</header>
-
-<div id="blog-tabs" class="tabs">
-    <button id="tab-public" class="tab-btn active" onclick="switchTab('public')">公开</button>
-    <button id="tab-private" class="tab-btn" onclick="switchTab('private')">私密</button>
-    <button class="btn" onclick="location.href='edit.html?id=new&type=Public'" style="margin-left:auto">+ 新建文章</button>
-</div>
-
-<div id="posts-container" class="post-list">
-    <p style="text-align:center; color:#999;">正在加载内容...</p>
 </div>
 
 <script>
@@ -98,87 +111,104 @@
         if (savedSession) {
             try {
                 currentUserConfig = JSON.parse(decodeURIComponent(savedSession));
-                showUserInfo();
-                document.getElementById('blog-tabs').style.display = 'flex';
+                showAdminUI();
                 switchTab('private');
-            } catch (e) { loadPublicBlog(); }
+            } catch (e) { loadList('public'); }
         } else {
-            loadPublicBlog();
+            loadList('public');
         }
     };
+
+    function showAdminUI() {
+        document.getElementById('login-nav-btn').style.display = 'none';
+        document.getElementById('user-info').style.display = 'block';
+        document.getElementById('blog-tabs').style.display = 'flex';
+        document.getElementById('new-post-btn').style.display = 'inline-flex';
+    }
 
     async function switchTab(type) {
         currentTab = type;
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         document.getElementById(`tab-${type}`).classList.add('active');
-        document.getElementById('posts-container').innerHTML = "<p style='text-align:center;'>读取数据中...</p>";
-
-        if (type === 'public') {
-            await loadBlog(ENCRYPTED_CONFIG_BlogPublic, "", false, null);
-        } else if (currentUserConfig) {
-            await loadBlog(currentUserConfig.gistId, currentUserConfig.token, true, currentUserConfig.password);
-        }
+        await loadList(type);
     }
 
-    async function loadPublicBlog() {
-        await loadBlog(ENCRYPTED_CONFIG_BlogPublic, "", false, null);
-    }
-
-    async function loadBlog(gistId, token, isPrivate, password) {
+    async function loadList(type) {
         const container = document.getElementById('posts-container');
+        container.innerHTML = "<p style='text-align:center; padding:50px 0;'>正在努力读取并解密内容...</p>";
+
         try {
+            const isPrivate = (type === 'private');
+            const token = isPrivate ? currentUserConfig.token : "";
+            const gistId = isPrivate ? currentUserConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
+            const password = isPrivate ? currentUserConfig.password : null;
+
             const data = await GistHelper.get(token, gistId);
             const files = data.files;
             container.innerHTML = ""; 
 
+            // 过滤.md文件并按时间倒序
             const fileList = Object.keys(files).filter(k => k.endsWith('.md')).sort().reverse(); 
 
             if (fileList.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:#999;'>空空如也</p>";
+                container.innerHTML = "<p style='text-align:center; color:#999; padding:50px 0;'>空空如也，开始写第一篇吧！</p>";
                 return;
             }
 
             for (const fileName of fileList) {
                 const info = BlogNamingHelper.parseFileName(fileName);
                 let displayTitle = info.title;
+                let displayExcerpt = files[fileName].content;
 
+                // --- 核心解密逻辑 ---
                 if (isPrivate && password) {
                     try {
                         displayTitle = await CryptoHelper.decrypt(info.title, password);
-                    } catch (e) { displayTitle = "[解密失败]"; }
+                        // 解密正文预览
+                        const decryptedFull = await CryptoHelper.decrypt(files[fileName].content, password);
+                        displayExcerpt = decryptedFull;
+                    } catch (e) { 
+                        displayTitle = "[标题解密失败]"; 
+                        displayExcerpt = "[内容已加密，请检查密码]";
+                    }
                 }
                 
-                const excerpt = files[fileName].content.substring(0, 100).replace(/[#*`]/g, '');
-                const typeLabel = isPrivate ? 'private' : 'public';
-                const typeText = isPrivate ? '私密' : '公开';
+                // 去除 Markdown 标签并截取预览
+                const cleanExcerpt = displayExcerpt.replace(/[#*`>]/g, '').substring(0, 120) + "...";
 
                 const div = document.createElement('div');
                 div.className = 'post-card';
                 div.innerHTML = `
-                    <div class="post-main">
+                    <div class="post-main" onclick="location.href='read.html?id=${info.rawTime}&type=${isPrivate?'Private':'Public'}'">
                         <div class="post-header">
-                            <h3 class="post-title">${displayTitle}</h3>
-                            <span class="status-tag status-${typeLabel}">${typeText}</span>
+                            <h2 class="post-title">${displayTitle}</h2>
+                            <span class="status-tag ${isPrivate?'status-private':'status-public'}">${isPrivate?'私密':'公开'}</span>
                             <span class="post-time">${info.formattedTime}</span>
                         </div>
-                        <div class="post-excerpt">${excerpt}</div>
+                        <div class="post-excerpt">${cleanExcerpt}</div>
                     </div>
+                    ${currentUserConfig ? `
                     <div class="post-actions">
-                        <button class="btn" onclick="editPost('${info.rawTime}', '${isPrivate?'Private':'Public'}')">编辑</button>
-                        <button class="btn btn-danger" onclick="deletePost('${fileName}', '${isPrivate}')">删除</button>
-                    </div>
+                        <button class="btn" onclick="event.stopPropagation(); editPost('${info.rawTime}', '${isPrivate?'Private':'Public'}')">编辑</button>
+                        <button class="btn btn-danger" onclick="event.stopPropagation(); deletePost('${fileName}', ${isPrivate})">删除</button>
+                    </div>` : ''}
                 `;
                 container.appendChild(div);
             }
         } catch (err) {
-            container.innerHTML = `<p style="color:red">加载失败: ${err.message}</p>`;
+            container.innerHTML = `<p style="color:red; text-align:center;">加载失败: ${err.message}</p>`;
         }
+    }
+
+    // --- 新建文章询问 ---
+    function askNewPost() {
+        const type = confirm("新建【私密文章】请点确定，新建【公开文章】请点取消。") ? 'Private' : 'Public';
+        location.href = `edit.html?id=new&type=${type}`;
     }
 
     async function login() {
         const password = document.getElementById('password-input').value;
         if (!password) return;
-
         try {
             const gistId = await CryptoHelper.decrypt(ENCRYPTED_CONFIG_BlogPrivate_gistid, password);
             const token = await CryptoHelper.decrypt(ENCRYPTED_CONFIG_BlogPrivate_token, password);
@@ -189,10 +219,9 @@
             document.cookie = `blog_session=${encodeURIComponent(JSON.stringify(currentUserConfig))}; expires=${d.toUTCString()}; path=/`;
 
             toggleLoginBox();
-            showUserInfo();
-            document.getElementById('blog-tabs').style.display = 'flex';
+            showAdminUI();
             switchTab('private');
-        } catch (err) { alert("解密失败，密码可能错误"); }
+        } catch (err) { alert("密码错误，解密失败！"); }
     }
 
     function editPost(id, type) {
@@ -200,19 +229,15 @@
     }
 
     async function deletePost(fileName, isPrivate) {
-        if (!confirm("确定要删除这篇文章吗？操作不可撤销。")) return;
+        if (!confirm("确定要删除吗？此操作无法撤销。")) return;
         try {
-            const token = isPrivate === 'true' ? currentUserConfig.token : "";
-            const gistId = isPrivate === 'true' ? currentUserConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
-            
-            // GitHub Gist 删除文件的逻辑是把 content 置为 null
+            const token = isPrivate ? currentUserConfig.token : "";
+            const gistId = isPrivate ? currentUserConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
             const patchFiles = {};
-            patchFiles[fileName] = null;
-            
-            await GistHelper.update(token, gistId, "Delete Post", patchFiles);
-            alert("删除成功");
+            patchFiles[fileName] = null; // GitHub Gist 删除语法
+            await GistHelper.update(token, gistId, "Delete", patchFiles);
             switchTab(currentTab);
-        } catch (err) { alert("删除失败: " + err.message); }
+        } catch (err) { alert("删除失败"); }
     }
 
     function logout() {
@@ -224,11 +249,6 @@
         const box = document.getElementById('login-box');
         box.style.display = box.style.display === 'block' ? 'none' : 'block';
         if(box.style.display === 'block') document.getElementById('password-input').focus();
-    }
-
-    function showUserInfo() {
-        document.getElementById('login-nav-btn').style.display = 'none';
-        document.getElementById('user-info').style.display = 'block';
     }
 </script>
 
