@@ -25,6 +25,11 @@ const LINKS_CONFIG = {
             "title": "文本行数显示器",
             "description": "显示粘贴的文本的行数",
             "url": "https://sucloudplus.github.io/tools/textlines"
+        },
+        {
+            "title": "Markdown编辑器",
+            "description": "编辑Markdown",
+            "url": "https://sucloudplus.github.io/tools/markdown"
         }
         // 在这里添加更多链接
     ]
