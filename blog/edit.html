@@ -191,15 +191,9 @@ async function performSave(isManual = false) {
 
         // 3. Base62转字符串，合成新的真实文件名（保持原始时间戳前缀不变）
         // 格式通常为: 时间戳-加密标题.md
-        const newFileName_Raw = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
-        const newFileName = articleInfo.rawFileName.replace(/^(\d+).*$/, "$1") + "-" + newFileName_Raw.replace(/^\d+-/, "");
-
-console.log("currentTitle",currentTitle);
-console.log("saveTitle",saveTitle);
-console.log("content",content);
-console.log("saveContent",saveContent);
-console.log("newFileName_Raw",newFileName_Raw);
-console.log("newFileName",newFileName);
+// 直接使用 formatFileName，传入原始时间戳 ID 和加密后的 saveTitle
+// 该函数内部会自动处理后缀 .md 和分类后缀
+const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
 
         // 4. 构建 Patch 对象
         const patchFiles = {};
@@ -282,3 +276,4 @@ function exportFile(ext) {
 </script>
 </body>
 </html>
+
