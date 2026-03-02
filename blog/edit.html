@@ -167,9 +167,7 @@ async function performSave(isManual = false) {
     if (!isDirty && !isManual) return;
     
     // 1. 获取用户输入的新标题（明文）
-    let currentTitle = document.getElementById('filename').value.trim() || "无题";
-    // 过滤掉文件名非法字符（虽然加密后通常是 Base64，但过滤一下更稳健）
-    currentTitle = currentTitle.replace(/[\\/:*?"<>|]/g, "_");
+    let currentTitle = document.getElementById('filename').value.trim() || "无标题";
     
     let content = cm.getValue();
     if (!content) content = " "; // 避免 422 错误
@@ -191,10 +189,11 @@ async function performSave(isManual = false) {
             saveContent = await CryptoHelper.encrypt(content, userConfig.password);
         }
 
-        // 3. 合成新的真实文件名（保持原始时间戳前缀不变）
-        // 格式通常为: 时间戳-加密标题-Private.md
-        const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
-        
+        // 3. Base62转字符串，合成新的真实文件名（保持原始时间戳前缀不变）
+        // 格式通常为: 时间戳-加密标题.md
+        const newFileName_Raw = BlogNamingHelper.formatFileName(articleInfo.idPrefix, saveTitle, articleInfo.type);
+        const newFileName = articleInfo.rawFileName.replace(/^(\d+).*$/, "$1") + newFileName_Raw.replace(/^\d+-/, "");
+
         // 4. 构建 Patch 对象
         const patchFiles = {};
         if (newFileName !== articleInfo.rawFileName) {
@@ -276,5 +275,3 @@ function exportFile(ext) {
 </script>
 </body>
 </html>
-
-
