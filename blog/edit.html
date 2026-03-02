@@ -4,49 +4,55 @@
     <meta charset="UTF-8">
     <title>编辑器 - 加密博客系统</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/matchesonscrollbar.min.css">
+    
     <style>
         :root { --bg: #f8f9fb; --border: #e1e4e8; --accent: #2188ff; }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        /* 导航栏 */
         .top-nav { background: #fff; border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
         .nav-row-1 { display: flex; align-items: center; padding: 10px 20px; gap: 15px; border-bottom: 1px solid #f0f0f0; }
-        .nav-row-2 { display: flex; align-items: center; padding: 8px 20px; gap: 20px; background: #fafbfc; }
         
-        /* 文件名编辑区样式 */
-        .name-editor { display: flex; align-items: center; background: #f0f2f5; border: 1px solid var(--border); border-radius: 4px; padding: 0 10px; flex: 1; max-width: 500px; }
+        /* 标题编辑区 */
+        .name-editor-wrapper { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 600px; }
+        .name-editor { display: flex; align-items: center; background: #f0f2f5; border: 1px solid var(--border); border-radius: 4px; padding: 0 10px; flex: 1; }
         #static-time { color: #888; font-family: monospace; font-size: 13px; padding-right: 8px; border-right: 1px solid #ddd; user-select: none; }
         #filename { border: none; background: transparent; padding: 8px 10px; width: 100%; outline: none; font-size: 14px; font-weight: 500; }
-        #filename:focus { background: #fff; }
-
+        
         .btn { padding: 5px 12px; border: 1px solid var(--border); background: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; gap: 4px; }
         .btn:hover { background: #f3f4f6; }
+        .btn-confirm { background: #e7f3ff; color: var(--accent); border: 1px solid #cce5ff; font-weight: bold; }
         .btn-primary { background: var(--accent); color: #fff; border: none; }
-        .btn-save { background: #28a745; color: #fff; border: none; margin-left: 10px; }
+        .btn-save { background: #28a745; color: #fff; border: none; }
         
-        .main-stage { display: flex; flex: 1; overflow: hidden; padding: 0 20px; }
-        #toc-pane { width: 220px; border-right: 1px solid var(--border); overflow-y: auto; padding: 15px; background: #fff; }
-        #workspace { flex: 1; display: flex; background: #fff; border-left: 1px solid var(--border); }
-        .CodeMirror { flex: 1; height: 100% !important; font-size: 15px; line-height: 1.7; }
+        /* 编辑器区域 */
+        .main-stage { display: flex; flex: 1; overflow: hidden; }
+        #toc-pane { width: 200px; border-right: 1px solid var(--border); overflow-y: auto; padding: 15px; background: #fff; font-size: 13px; }
+        #workspace { flex: 1; position: relative; display: flex; flex-direction: column; background: #fff; }
+        .CodeMirror { flex: 1; height: 100% !important; font-family: 'Fira Code', monospace; font-size: 14px; }
+        
+        /* 快捷键提示 */
+        .hint-bar { padding: 4px 20px; font-size: 11px; color: #999; border-top: 1px solid #eee; background: #fff; }
+        
         #preview-pane { width: 0; overflow-y: auto; background: #fff; transition: width 0.3s ease; }
-        #preview-pane.active { width: 50%; border-left: 1px solid var(--border); padding: 0 25px; }
-        
-        .save-status { font-weight: bold; font-size: 12px; }
-        .status-syncing { color: var(--accent); }
-        .status-success { color: #28a745; }
-        .status-dirty { color: #e65100; }
-        
-        .toc-item { display: block; padding: 6px 10px; color: #444; text-decoration: none; cursor: pointer; border-radius: 4px; font-size: 13px; }
-        .toc-item:hover { background: #f0f7ff; color: var(--accent); }
-        .toc-h1 { font-weight: bold; }
-        .toc-h2 { padding-left: 20px; color: #666; }
+        #preview-pane.active { width: 45%; border-left: 1px solid var(--border); padding: 20px; }
     </style>
 
     <script src="https://sucloudplus.github.io/assets/config.js"></script> 
     <script src="https://sucloudplus.github.io/assets/crypto-helper.js"></script>
     <script src="https://sucloudplus.github.io/assets/gist-helper.js"></script>
     <script src="https://sucloudplus.github.io/assets/blog-naming-helper.js"></script>
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/dialog/dialog.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/searchcursor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/search.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/addon/search/jump-to-line.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 <body>
@@ -54,20 +60,21 @@
 <header class="top-nav">
     <div class="nav-row-1">
         <button class="btn" onclick="location.href='index.html'">← 返回</button>
-        <div class="name-editor">
-            <span id="static-time">00000000000000</span>
-            <input type="text" id="filename" placeholder="文章标题...">
+        
+        <div class="name-editor-wrapper">
+            <div class="name-editor">
+                <span id="static-time">载入中...</span>
+                <input type="text" id="filename" placeholder="文章标题...">
+            </div>
+            <button class="btn btn-confirm" onclick="manualSave()" title="确定并保存标题修改">确定</button>
         </div>
+
         <div style="margin-left: auto; display: flex; gap: 8px;">
-            <button class="btn" onclick="exportFile('md')">导出 .md</button>
-            <button class="btn" onclick="exportFile('txt')">导出 .txt</button>
+            <button class="btn" onclick="exportFile('md')">导出 MD</button>
+            <button class="btn" onclick="exportFile('txt')">导出 TXT</button>
             <button class="btn btn-primary" onclick="togglePreview()">预览</button>
             <button class="btn btn-save" onclick="manualSave()">立即保存</button>
         </div>
-    </div>
-    <div class="nav-row-2">
-        <div id="status-bar" style="font-size: 12px; color: #999;">准备就绪</div>
-        <div id="auto-save-status" class="save-status" style="margin-left: auto;"></div>
     </div>
 </header>
 
@@ -75,20 +82,14 @@
     <nav id="toc-pane"></nav>
     <main id="workspace">
         <textarea id="real-input"></textarea>
-        <div id="preview-pane"></div>
+        <div class="hint-bar">搜索: Ctrl+F | 替换: Ctrl+Shift+F | 跳转行: Alt+G</div>
     </main>
+    <div id="preview-pane"></div>
 </div>
 
 <script>
     let cm, userConfig = null, articleInfo = { type: '', idPrefix: '', rawFileName: '' };
     let isDirty = false;
-    let originalTitle = ""; // 用于对比是否修改了文件名
-
-    function getCookie(name) {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; ${name}=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
-    }
 
     window.onload = async function() {
         const params = new URLSearchParams(window.location.search);
@@ -103,7 +104,7 @@
 
         initEditor();
         await loadAndDecrypt();
-        setInterval(autoSave, 30000);
+        setInterval(() => performSave(false), 30000);
     };
 
     function initEditor() {
@@ -111,27 +112,22 @@
             mode: 'markdown',
             lineNumbers: true,
             lineWrapping: true,
-            styleActiveLine: true
+            styleActiveLine: true,
+            keyMap: "default",
+            extraKeys: {
+                "Ctrl-S": function(instance) { manualSave(); },
+                "Cmd-S": function(instance) { manualSave(); },
+                "Alt-G": "jumpToLine", // 跳转行快捷键
+                "Ctrl-F": "findPersistent" // 持续搜索
+            }
         });
 
-        cm.on('change', () => {
-            isDirty = true;
-            updateTOC();
-            if(document.getElementById('preview-pane').classList.contains('active')) updatePreview();
-            setSaveStatus("● 未保存", "status-dirty");
-        });
-
-        // 监听文件名修改
-        document.getElementById('filename').addEventListener('input', () => {
-            isDirty = true;
-            setSaveStatus("● 标题已更动", "status-dirty");
-        });
+        cm.on('change', () => { isDirty = true; updateTOC(); });
+        document.getElementById('filename').addEventListener('input', () => { isDirty = true; });
     }
 
     async function loadAndDecrypt() {
-        const statusEl = document.getElementById('status-bar');
         try {
-            statusEl.innerText = "获取数据中...";
             const token = articleInfo.type === 'Private' ? userConfig.token : "";
             const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
 
@@ -152,85 +148,72 @@
 
             document.getElementById('static-time').innerText = articleInfo.idPrefix;
             document.getElementById('filename').value = title;
-            originalTitle = title;
             cm.setValue(content);
             updateTOC();
             isDirty = false;
-            statusEl.innerText = "加载成功";
-            setSaveStatus("已同步", "status-success");
         } catch (err) {
-            statusEl.innerText = "错误: " + err.message;
+            console.error(err);
         }
     }
 
-async function performSave(isManual = false) {
-    if (!isDirty && !isManual) return;
-    
-    let currentTitle = document.getElementById('filename').value.trim() || "无标题";
-    let content = cm.getValue();
-    if (!content) content = " "; 
-
-    setSaveStatus("正在保存...", "status-syncing");
-
-    try {
-        const token = articleInfo.type === 'Private' ? userConfig.token : "";
-        const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
-
-        let titleToEncode = currentTitle;
-        let saveContent = content;
-
-        if (articleInfo.type === 'Private') {
-            // 1. 加密标题 (AES)
-            const encryptedTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
-            // 2. 准备进行 Base62 编码
-            titleToEncode = encryptedTitle;
-            // 3. 加密内容
-            saveContent = await CryptoHelper.encrypt(content, userConfig.password);
-        }
-
-        // 4. 进行 Base62 编码 (无论是明文还是加密串，文件名部分都统一编码)
-        const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
-
-        // 5. 合成最终文件名 (传入固定的 articleInfo.idPrefix)
-        const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, b62Title);
-
-        const patchFiles = {};
-        if (newFileName !== articleInfo.rawFileName) {
-            patchFiles[articleInfo.rawFileName] = {
-                filename: newFileName,
-                content: saveContent
-            };
-        } else {
-            patchFiles[articleInfo.rawFileName] = { content: saveContent };
-        }
-
-        await GistHelper.update(token, gistId, "Update Blog", patchFiles);
-
-        articleInfo.rawFileName = newFileName;
-        isDirty = false;
-        setSaveStatus("保存成功 " + new Date().toLocaleTimeString(), "status-success");
+    async function performSave(isManual = false) {
+        if (!isDirty && !isManual) return;
         
-    } catch (err) {
-        console.error("Save Error:", err);
-        setSaveStatus("保存失败", "status-dirty");
-    }
-}
+        const currentTitle = document.getElementById('filename').value.trim() || "无题";
+        let content = cm.getValue() || " ";
 
-    function setSaveStatus(text, className) {
-        const el = document.getElementById('auto-save-status');
-        el.innerText = text;
-        el.className = "save-status " + className;
+        try {
+            const token = articleInfo.type === 'Private' ? userConfig.token : "";
+            const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
+
+            let titleToEncode = currentTitle;
+            let saveContent = content;
+
+            if (articleInfo.type === 'Private') {
+                const encryptedTitle = await CryptoHelper.encrypt(currentTitle, userConfig.password);
+                titleToEncode = encryptedTitle;
+                saveContent = await CryptoHelper.encrypt(content, userConfig.password);
+            }
+
+            // 使用 Base62 编码文件名中的标题部分
+            const b62Title = BlogNamingHelper.encodeBase62(titleToEncode);
+            // 保持 ID (articleInfo.idPrefix) 不变
+            const newFileName = BlogNamingHelper.formatFileName(articleInfo.idPrefix, b62Title);
+
+            const patchFiles = {};
+            if (newFileName !== articleInfo.rawFileName) {
+                // 重命名逻辑
+                patchFiles[articleInfo.rawFileName] = { filename: newFileName, content: saveContent };
+            } else {
+                patchFiles[articleInfo.rawFileName] = { content: saveContent };
+            }
+
+            await GistHelper.update(token, gistId, "Save Blog", patchFiles);
+            articleInfo.rawFileName = newFileName;
+            isDirty = false;
+            console.log("保存成功");
+        } catch (err) {
+            console.error("Save failed:", err);
+        }
+    }
+
+    // 辅助功能
+    function exportFile(ext) {
+        const title = document.getElementById('filename').value || '未命名';
+        const content = cm.getValue();
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${articleInfo.idPrefix}-${title}.${ext}`;
+        a.click();
+        URL.revokeObjectURL(url);
     }
 
     function togglePreview() {
-        document.getElementById('preview-pane').classList.toggle('active');
-        updatePreview();
-    }
-
-    function updatePreview() {
-        const preview = document.getElementById('preview-pane');
-        if (!preview.classList.contains('active')) return;
-        preview.innerHTML = marked.parse(cm.getValue());
+        const pane = document.getElementById('preview-pane');
+        pane.classList.toggle('active');
+        if (pane.classList.contains('active')) pane.innerHTML = marked.parse(cm.getValue());
     }
 
     function updateTOC() {
@@ -240,30 +223,19 @@ async function performSave(isManual = false) {
             const m = line.match(/^(#{1,2})\s+(.*)/);
             if (m) {
                 const level = m[1].length;
-                const text = m[2].replace(/<[^>]*>/g, '').trim();
-                html += `<a class="toc-item toc-h${level}" onclick="cm.setCursor(${i},0);cm.focus();">${text}</a>`;
+                html += `<div class="toc-item toc-h${level}" style="cursor:pointer;padding:4px 0" onclick="cm.setCursor(${i},0);cm.focus();">${m[2]}</div>`;
             }
         });
         document.getElementById('toc-pane').innerHTML = html;
     }
 
-function exportFile(ext) {
-    const title = document.getElementById('filename').value || '未命名';
-    const content = cm.getValue(); // 导出用户看到的明文
-    const blob = new Blob([content], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${articleInfo.idPrefix}-${title}.${ext}`; // 建议带上时间戳方便整理
-    a.click();
-    URL.revokeObjectURL(url);
-}
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
 
-    function autoSave() { performSave(false); }
     function manualSave() { performSave(true); }
 </script>
 </body>
 </html>
-
-
-
