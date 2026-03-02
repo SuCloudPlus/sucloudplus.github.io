@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>编辑器 - 加密博客系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+    <style>
+        :root { --bg: #f8f9fb; --border: #e1e4e8; --accent: #2188ff; }
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        .top-nav { background: #fff; border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
+        .nav-row-1 { display: flex; align-items: center; padding: 10px 20px; gap: 15px; border-bottom: 1px solid #f0f0f0; }
+        .nav-row-2 { display: flex; align-items: center; padding: 8px 20px; gap: 20px; background: #fafbfc; }
+        #filename { border: 1px solid var(--border); padding: 5px 10px; border-radius: 4px; width: 300px; outline: none; background: #f9f9f9; }
+        .btn { padding: 5px 12px; border: 1px solid var(--border); background: #fff; border-radius: 4px; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center; }
+        .btn:hover { background: #f3f4f6; }
+        .btn-primary { background: var(--accent); color: #fff; border: none; }
+        .btn-save { background: #28a745; color: #fff; border: none; margin-left: 10px; }
+        .main-stage { display: flex; flex: 1; overflow: hidden; padding: 0 20px; }
+        #toc-pane { width: 220px; border-right: 1px solid var(--border); overflow-y: auto; padding: 15px; background: #fff; }
+        .toc-item { display: block; color: #444; text-decoration: none; padding: 6px 0; font-size: 14px; cursor: pointer; border-left: 2px solid transparent; padding-left: 8px; }
+        .toc-item:hover { color: var(--accent); background: #f0f7ff; }
+        #workspace { flex: 1; display: flex; background: #fff; border-left: 1px solid var(--border); }
+        .CodeMirror { flex: 1; height: 100% !important; font-size: 15px; line-height: 1.7; }
+        #preview-pane { width: 0; overflow-y: auto; background: #fff; transition: width 0.3s ease; }
+        #preview-pane.active { width: 50%; border-left: 1px solid var(--border); padding: 0 25px; }
+        .line-wrap { position: relative; padding-left: 45px; min-height: 1.7em; }
+        .line-num { position: absolute; left: 0; color: #ccc; font-family: monospace; font-size: 13px; width: 35px; text-align: right; border-right: 1px solid #eee; padding-right: 8px; }
+        #side-control { width: 50px; display: flex; flex-direction: column; align-items: center; padding-top: 20px; gap: 15px; }
+        .save-status { font-weight: bold; font-size: 12px; }
+        .status-syncing { color: var(--accent); }
+        .status-success { color: #28a745; }
+        .status-dirty { color: #e65100; }
+    </style>
+
+    <script src="https://sucloudplus.github.io/assets/config.js"></script> 
+    <script src="https://sucloudplus.github.io/assets/crypto-helper.js"></script>
+    <script src="https://sucloudplus.github.io/assets/gist-helper.js"></script>
+    <script src="https://sucloudplus.github.io/assets/blog-naming-helper.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/markdown/markdown.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+<header class="top-nav">
+    <div class="nav-row-1">
+        <button class="btn" onclick="location.href='index.html'">← 返回列表</button>
+        <input type="text" id="filename" readonly value="正在加载...">
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+            <button class="btn btn-save" id="save-btn" onclick="manualSave()">立即保存</button>
+            <button class="btn btn-primary" onclick="togglePreview()">预览开关</button>
+        </div>
+    </div>
+    <div class="nav-row-2">
+        <div id="status-bar" style="font-size: 12px; color: #999;">准备就绪</div>
+        <div id="auto-save-status" class="save-status" style="margin-left: auto;"></div>
+    </div>
+</header>
+
+<div class="main-stage">
+    <nav id="toc-pane"></nav>
+    <main id="workspace">
+        <textarea id="real-input"></textarea>
+        <div id="preview-pane"></div>
+    </main>
+    <aside id="side-control">
+        <button class="btn" title="回至顶部" onclick="cm.scrollTo(null, 0)">↑</button>
+        <button class="btn" title="跳至底部" onclick="cm.scrollTo(null, cm.getScrollInfo().height)">↓</button>
+    </aside>
+</div>
+
+<script>
+    let cm, userConfig = null, articleInfo = { type: '', idPrefix: '', rawFileName: '' };
+    let isDirty = false;
+
+    // 1. 获取 Cookie
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+    // 2. 初始化流程
+    window.onload = async function() {
+        // 解析 URL 参数 (?type=Private&id=2026...)
+        const params = new URLSearchParams(window.location.search);
+        articleInfo.type = params.get('type') || 'Public';
+        articleInfo.idPrefix = params.get('id');
+
+        if (!articleInfo.idPrefix) {
+            alert("缺少文章 ID");
+            return;
+        }
+
+        // 验证权限
+        const session = getCookie("blog_session");
+        if (articleInfo.type === 'Private') {
+            if (!session) { alert("访问私有文章需先登录"); location.href='index.html'; return; }
+            userConfig = JSON.parse(decodeURIComponent(session));
+        }
+
+        initEditor();
+        await loadAndDecrypt();
+
+        // 启动自动保存定时器 (30秒)
+        setInterval(autoSave, 30000);
+    };
+
+    // 3. 编辑器初始化
+    function initEditor() {
+        cm = CodeMirror.fromTextArea(document.getElementById('real-input'), {
+            mode: 'markdown',
+            lineNumbers: true,
+            lineWrapping: true,
+            styleActiveLine: true
+        });
+
+        cm.on('change', () => {
+            isDirty = true;
+            updatePreview();
+            document.getElementById('auto-save-status').innerText = "● 未保存";
+            document.getElementById('auto-save-status').className = "save-status status-dirty";
+        });
+    }
+
+    // 4. 加载数据并解密
+    async function loadAndDecrypt() {
+        const statusEl = document.getElementById('status-bar');
+        try {
+            statusEl.innerText = "正在同步 GitHub 数据...";
+            
+            // 获取 Token 和 GistID
+            const token = articleInfo.type === 'Private' ? userConfig.token : "";
+            const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
+
+            const data = await GistHelper.get(token, gistId);
+            const files = data.files;
+            
+            // 找到匹配时间戳的文件
+            const fileName = Object.keys(files).find(n => n.startsWith(articleInfo.idPrefix));
+            if (!fileName) throw new Error("找不到该文章文件");
+            
+            articleInfo.rawFileName = fileName;
+            const fileData = files[fileName];
+            
+            const nameInfo = BlogNamingHelper.parseFileName(fileName);
+            let title = nameInfo.title;
+            let content = fileData.content;
+
+            // 如果是私有文章，解密标题和内容
+            if (articleInfo.type === 'Private') {
+                statusEl.innerText = "正在解密内容...";
+                title = await CryptoHelper.decrypt(title, userConfig.password);
+                content = await CryptoHelper.decrypt(content, userConfig.password);
+            }
+
+            document.getElementById('filename').value = title;
+            cm.setValue(content);
+            isDirty = false;
+            statusEl.innerText = "加载成功";
+            document.getElementById('auto-save-status').innerText = "已同步";
+        } catch (err) {
+            statusEl.innerText = "加载失败: " + err.message;
+            console.error(err);
+        }
+    }
+
+    // 5. 保存逻辑 (复用 CryptoHelper 加密)
+    async function performSave(isManual = false) {
+        if (!isDirty && !isManual) return;
+        
+        const saveStatus = document.getElementById('auto-save-status');
+        saveStatus.innerText = "正在保存...";
+        saveStatus.className = "save-status status-syncing";
+
+        try {
+            let finalContent = cm.getValue();
+            const token = articleInfo.type === 'Private' ? userConfig.token : "";
+            const gistId = articleInfo.type === 'Private' ? userConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
+
+            if (articleInfo.type === 'Private') {
+                finalContent = await CryptoHelper.encrypt(finalContent, userConfig.password);
+            }
+
+            const patchFiles = {};
+            patchFiles[articleInfo.rawFileName] = { content: finalContent };
+
+            await GistHelper.update(token, gistId, "Blog Update", patchFiles);
+
+            isDirty = false;
+            saveStatus.innerText = "保存完毕 " + new Date().toLocaleTimeString();
+            saveStatus.className = "save-status status-success";
+        } catch (err) {
+            saveStatus.innerText = "保存出错: " + err.message;
+            saveStatus.className = "save-status status-dirty";
+        }
+    }
+
+    function autoSave() { performSave(false); }
+    function manualSave() { performSave(true); }
+
+    // --- UI 辅助函数 ---
+    function togglePreview() {
+        document.getElementById('preview-pane').classList.toggle('active');
+        updatePreview();
+    }
+
+    function updatePreview() {
+        const preview = document.getElementById('preview-pane');
+        if (!preview.classList.contains('active')) return;
+        
+        const lines = cm.getValue().split('\n');
+        let html = '';
+        lines.forEach((line, i) => {
+            const rendered = line.trim() === '' ? '&nbsp;' : marked.parse(line);
+            html += `<div class="line-wrap"><span class="line-num">${i + 1}</span>${rendered}</div>`;
+        });
+        preview.innerHTML = html;
+        
+        // 更新左侧目录
+        let tocHtml = '';
+        lines.forEach((line, i) => {
+            const m = line.match(/^(#{1,2})\s+(.*)/);
+            if (m) {
+                const text = m[2].replace(/<[^>]*>/g, '');
+                tocHtml += `<a class="toc-item" onclick="cm.setCursor(${i},0);cm.focus();">${text}</a>`;
+            }
+        });
+        document.getElementById('toc-pane').innerHTML = tocHtml;
+    }
+</script>
+</body>
+</html>
