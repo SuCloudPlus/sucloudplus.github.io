@@ -52,12 +52,15 @@
         .status-private { background: #fff8c5; color: #9a6700; }
 
         /* 按钮组件 */
-        .btn { cursor: pointer; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: #fff; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; }
+        .btn { cursor: pointer; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: #fff; font-size: 14px; font-weight: 500; display: inline-flex; align-items: center; transition: 0.2s; }
         .btn:hover { background: #f3f4f6; }
         .btn-primary { background: var(--primary); color: #fff; border: none; }
         .btn-primary:hover { background: #0969da; }
-        .btn-danger { color: var(--danger); }
+        .btn-danger { background: var(--danger); color: #fff; border: none; }
+        .btn-danger:hover { background: #b71c1c; }
+        
         .post-actions { display: flex; gap: 8px; margin-left: 20px; }
+        .new-post-group { display: none; gap: 10px; margin-left: auto; }
     </style>
 
     <script src="https://sucloudplus.github.io/assets/config.js"></script> 
@@ -73,7 +76,7 @@
         <div id="auth-area">
             <button id="login-nav-btn" class="btn btn-primary" onclick="toggleLoginBox()">管理登录</button>
             <div id="user-info" style="display:none">
-                <button class="btn btn-danger" onclick="logout()">安全退出</button>
+                <button class="btn" style="color: #d32f2f; border-color: #d32f2f;" onclick="logout()">安全退出</button>
             </div>
         </div>
 
@@ -88,7 +91,11 @@
             <button id="tab-public" class="tab-btn active" onclick="switchTab('public')">公开文章</button>
             <button id="tab-private" class="tab-btn" onclick="switchTab('private')">私密文章</button>
         </div>
-        <button id="new-post-btn" class="btn btn-primary" onclick="askNewPost()" style="margin-left:auto; display:none">+ 新建文章</button>
+        
+        <div id="new-post-group" class="new-post-group">
+            <button class="btn btn-primary" onclick="location.href='edit.html?id=new&type=Public'">+ 新建公开文章</button>
+            <button class="btn btn-danger" onclick="location.href='edit.html?id=new&type=Private'">+ 新建私密文章</button>
+        </div>
     </div>
 
     <div id="posts-container">
@@ -123,7 +130,7 @@
         document.getElementById('login-nav-btn').style.display = 'none';
         document.getElementById('user-info').style.display = 'block';
         document.getElementById('blog-tabs').style.display = 'flex';
-        document.getElementById('new-post-btn').style.display = 'inline-flex';
+        document.getElementById('new-post-group').style.display = 'flex';
     }
 
     async function switchTab(type) {
@@ -147,7 +154,6 @@
             const files = data.files;
             container.innerHTML = ""; 
 
-            // 过滤.md文件并按时间倒序
             const fileList = Object.keys(files).filter(k => k.endsWith('.md')).sort().reverse(); 
 
             if (fileList.length === 0) {
@@ -160,11 +166,9 @@
                 let displayTitle = info.title;
                 let displayExcerpt = files[fileName].content;
 
-                // --- 核心解密逻辑 ---
                 if (isPrivate && password) {
                     try {
                         displayTitle = await CryptoHelper.decrypt(info.title, password);
-                        // 解密正文预览
                         const decryptedFull = await CryptoHelper.decrypt(files[fileName].content, password);
                         displayExcerpt = decryptedFull;
                     } catch (e) { 
@@ -173,7 +177,6 @@
                     }
                 }
                 
-                // 去除 Markdown 标签并截取预览
                 const cleanExcerpt = displayExcerpt.replace(/[#*`>]/g, '').substring(0, 120) + "...";
 
                 const div = document.createElement('div');
@@ -190,7 +193,7 @@
                     ${currentUserConfig ? `
                     <div class="post-actions">
                         <button class="btn" onclick="event.stopPropagation(); editPost('${info.rawTime}', '${isPrivate?'Private':'Public'}')">编辑</button>
-                        <button class="btn btn-danger" onclick="event.stopPropagation(); deletePost('${fileName}', ${isPrivate})">删除</button>
+                        <button class="btn" style="color: #d32f2f;" onclick="event.stopPropagation(); deletePost('${fileName}', ${isPrivate})">删除</button>
                     </div>` : ''}
                 `;
                 container.appendChild(div);
@@ -198,12 +201,6 @@
         } catch (err) {
             container.innerHTML = `<p style="color:red; text-align:center;">加载失败: ${err.message}</p>`;
         }
-    }
-
-    // --- 新建文章询问 ---
-    function askNewPost() {
-        const type = confirm("新建【私密文章】请点确定，新建【公开文章】请点取消。") ? 'Private' : 'Public';
-        location.href = `edit.html?id=new&type=${type}`;
     }
 
     async function login() {
@@ -231,13 +228,13 @@
     async function deletePost(fileName, isPrivate) {
         if (!confirm("确定要删除吗？此操作无法撤销。")) return;
         try {
-            const token = isPrivate ? currentUserConfig.token : "";
+            const token = currentUserConfig.token; // 删除始终需要 Token
             const gistId = isPrivate ? currentUserConfig.gistId : ENCRYPTED_CONFIG_BlogPublic;
             const patchFiles = {};
-            patchFiles[fileName] = null; // GitHub Gist 删除语法
+            patchFiles[fileName] = null;
             await GistHelper.update(token, gistId, "Delete", patchFiles);
             switchTab(currentTab);
-        } catch (err) { alert("删除失败"); }
+        } catch (err) { alert("删除失败: " + err.message); }
     }
 
     function logout() {
