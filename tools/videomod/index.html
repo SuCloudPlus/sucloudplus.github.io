@@ -11,11 +11,11 @@
             fftSize: 2048,
             bar: {
                 color: '#7cff4d', 
-                count: 64, // 频谱数量
+                count: 32, // 频谱数量
                 opacity: 1.0, // 不透明度
                 width: 10, //柱子宽度
-                radius: 5, // 圆角半径
-                scale: 300, // 高度缩放
+                radius: 50, // 圆角半径
+                scale: 120, // 高度缩放
                 margin: 0, 
                 roundBottom: false,
                 baseHeight: 10 // 新增：默认高度（频谱值为0时的基础高度）
@@ -318,9 +318,10 @@
 
     <div class="right-panel">
         <div id="render-stats">
-            <div>RENDERING...</div>
+            <div>⚡ 离线渲染中...</div>
             <div id="rs-res">1920x1080</div>
             <div id="rs-prog">0%</div>
+            <div id="rs-speed" style="font-size:10px; color:#0f0; margin-top:2px;"></div>
             <div style="font-size:10px; color:#888; margin-top:5px;">点击渲染按钮取消</div>
         </div>
 
@@ -486,7 +487,7 @@ const Viz = (function() {
                 S.img = im;
                 document.getElementById('box-img').classList.add('has-file');
                 document.getElementById('info-img').innerHTML = `${im.naturalWidth}x${im.naturalHeight}<br>已就绪`;
-                if(document.getElementById('vid-res').value==='auto') resize(im.naturalWidth, im.naturalHeight);
+                resizeFromUI(); // 始终按当前分辨率设置来 resize，而不是只在 auto 时
                 reqDraw();
             };
             im.src = url;
@@ -715,81 +716,270 @@ const Viz = (function() {
         S.animId = requestAnimationFrame(loop);
     }
 
-    // --- 渲染逻辑 ---
+    // --- 渲染逻辑（离线渲染，不依赖实时播放）---
     async function toggleRender() {
         if(!S.audio || !S.img) return alert("资源不全");
         if(S.rendering) {
-            // 取消逻辑
-            window.location.reload(); // 简单粗暴重置，防止状态混乱
+            S.renderCancelled = true;
             return;
         }
 
         if(S.playing) togglePlay(); // 停止预览
 
         S.rendering = true;
+        S.renderCancelled = false;
         resizeFromUI();
-        
+
         const btn = document.getElementById('btn-render');
         const stats = document.getElementById('render-stats');
         btn.textContent = "取消渲染";
         btn.classList.replace('btn-danger', 'btn-primary');
         stats.style.display = 'block';
         document.getElementById('rs-res').textContent = `${S.canvas.width}x${S.canvas.height}`;
+        document.getElementById('rs-prog').textContent = "分析音频...";
 
-        // 1. Setup Stream
         const fps = parseInt(document.getElementById('vid-fps').value);
-        const stream = S.canvas.captureStream(fps);
+        const totalDuration = S.audio.duration;
+        const totalFrames = Math.ceil(totalDuration * fps);
+
+        // === 1. 离线分析音频，提取每帧的频谱数据 ===
+        // 用 OfflineAudioContext 在内存中渲染完整音频，然后逐帧采样
+        const fftSize = S.cfg.fftSize || 2048;
+        const frameData = await extractAllFrameData(S.audio, fps, totalFrames, fftSize);
+
+        if(S.renderCancelled) {
+            resetRenderState(btn, stats);
+            return;
+        }
+
+        document.getElementById('rs-prog').textContent = "准备编码...";
+
+        // === 2. 建立录制流 ===
+        // 关键：captureStream(fps) 让浏览器按正确帧率采集画面，视频时长才能与音频一致
+        // captureStream(0)/requestFrame() 方式时间戳不正确，会导致倍速播放，禁止使用
+        const canvasStream = S.canvas.captureStream(fps);
+
+        // 音频：实时播放并混入录制流
         const dest = S.ac.createMediaStreamDestination();
-        
-        const src = S.ac.createBufferSource();
-        src.buffer = S.audio;
-        src.connect(S.an);
-        S.an.connect(dest); // 音频不输出到扬声器，只输出到流
+        const audioSrc = S.ac.createBufferSource();
+        audioSrc.buffer = S.audio;
+        audioSrc.connect(dest); // 音频不连 analyser，频谱已离线提取完毕
+        canvasStream.addTrack(dest.stream.getAudioTracks()[0]);
 
-        stream.addTrack(dest.stream.getAudioTracks()[0]);
-
-        // 2. Recorder
         let mime = 'video/webm;codecs=vp9';
-        if(MediaRecorder.isTypeSupported('video/mp4')) mime = 'video/mp4';
-        
-        const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 15000000 });
+        if(!MediaRecorder.isTypeSupported(mime)) mime = 'video/webm';
+
+        const rec = new MediaRecorder(canvasStream, { mimeType: mime, videoBitsPerSecond: 15000000 });
         const chunks = [];
-        rec.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
+        rec.ondataavailable = e => { if(e.data.size > 0) chunks.push(e.data); };
         rec.onstop = () => {
-            const blob = new Blob(chunks, {type: mime});
+            const blob = new Blob(chunks, { type: mime });
             const url = URL.createObjectURL(blob);
             const a = document.getElementById('download-link');
             a.href = url;
-            a.download = `viz_video_${Date.now()}.${mime.includes('mp4')?'mp4':'webm'}`;
+            a.download = `viz_video_${Date.now()}.webm`;
             a.click();
-            
             btn.textContent = "渲染完成 (点击刷新)";
+            btn.onclick = () => window.location.reload();
             S.rendering = false;
+            document.getElementById('rs-speed').textContent = '';
+            stats.innerHTML += '<div style="color:#0f0; margin-top:4px;">✓ 完成</div>';
         };
 
-        // 3. Start
+        // === 3. 同时启动录制和音频 ===
         rec.start();
-        src.start(0);
+        audioSrc.start(0);
+        const recordStartAC = S.ac.currentTime; // 用 AudioContext 时钟做基准，精度最高
 
-        // 4. Manual Loop
-        const total = S.audio.duration;
-        const startT = S.ac.currentTime;
+        // === 4. rAF 驱动绘制，以音频时钟为准确定当前帧 ===
+        // 虽然仍用 rAF，但绘制本身极快（离线数据直接查表），不会阻塞
+        // 帧索引由 AudioContext 时钟决定，而非帧计数器，防止累积误差
+        let lastDrawnFrame = -1;
 
-        const renderFrame = () => {
-            if(!S.rendering) return;
-            draw();
-            const curr = S.ac.currentTime - startT;
-            const pct = Math.min(100, (curr/total)*100).toFixed(1);
-            document.getElementById('rs-prog').textContent = pct + "%";
-
-            if(curr < total) {
-                requestAnimationFrame(renderFrame);
-            } else {
+        const renderLoop = () => {
+            if(S.renderCancelled) {
                 rec.stop();
-                src.stop();
+                audioSrc.stop();
+                resetRenderState(btn, stats);
+                return;
             }
+
+            const elapsed = S.ac.currentTime - recordStartAC;
+
+            // 超出音频时长，停止
+            if(elapsed >= S.audio.duration) {
+                drawWithData(frameData[totalFrames - 1]); // 确保最后一帧
+                // 等一帧让 captureStream 捕获最后帧后再停
+                setTimeout(() => { rec.stop(); audioSrc.stop(); }, Math.ceil(1000 / fps) + 50);
+                return;
+            }
+
+            // 当前应显示第几帧（音频时钟驱动）
+            const currentFrame = Math.min(Math.floor(elapsed * fps), totalFrames - 1);
+
+            if(currentFrame !== lastDrawnFrame) {
+                drawWithData(frameData[currentFrame]);
+                lastDrawnFrame = currentFrame;
+
+                const pct = (elapsed / S.audio.duration * 100).toFixed(1);
+                document.getElementById('rs-prog').textContent = pct + "%";
+                document.getElementById('rs-speed').textContent =
+                    `帧 ${currentFrame + 1} / ${totalFrames}  |  ${(elapsed).toFixed(1)}s / ${S.audio.duration.toFixed(1)}s`;
+            }
+
+            requestAnimationFrame(renderLoop);
         };
-        renderFrame();
+
+        requestAnimationFrame(renderLoop);
+    }
+
+    // 离线提取所有帧的频谱数据（使用 OfflineAudioContext + ScriptProcessor）
+    async function extractAllFrameData(audioBuffer, fps, totalFrames, fftSize) {
+        return new Promise((resolve) => {
+            const sampleRate = audioBuffer.sampleRate;
+            const samplesPerFrame = Math.floor(sampleRate / fps);
+            const totalSamples = audioBuffer.length;
+            const frameData = [];
+
+            // 创建离线 AudioContext，渲染速度远超实时
+            const offlineCtx = new OfflineAudioContext(
+                audioBuffer.numberOfChannels,
+                totalSamples,
+                sampleRate
+            );
+
+            // 离线 Analyser
+            const offlineAnalyser = offlineCtx.createAnalyser();
+            offlineAnalyser.fftSize = fftSize;
+            offlineAnalyser.smoothingTimeConstant = S.an.smoothingTimeConstant || 0.0; // 离线不需要平滑
+
+            // 离线 Source
+            const offlineSrc = offlineCtx.createBufferSource();
+            offlineSrc.buffer = audioBuffer;
+            offlineSrc.connect(offlineAnalyser);
+            offlineAnalyser.connect(offlineCtx.destination);
+
+            // ScriptProcessor 每隔 samplesPerFrame 采集一次频谱
+            // 注意：OfflineAudioContext 不支持 ScriptProcessor 的 onaudioprocess
+            // 改用：渲染完成后，对 PCM 数据手动做分帧 + 快速 FFT
+            offlineSrc.start(0);
+            offlineCtx.startRendering().then(renderedBuffer => {
+                // 渲染完成，获取 PCM 数据
+                const channelData = renderedBuffer.getChannelData(0);
+
+                for(let f = 0; f < totalFrames; f++) {
+                    const sampleStart = f * samplesPerFrame;
+                    const segment = new Float32Array(fftSize);
+                    for(let i = 0; i < fftSize; i++) {
+                        const idx = sampleStart + i;
+                        if(idx < channelData.length) {
+                            // Hann 窗
+                            const w = 0.5 * (1 - Math.cos(2 * Math.PI * i / (fftSize - 1)));
+                            segment[i] = channelData[idx] * w;
+                        }
+                    }
+
+                    const freqData = radix2FFT(segment, fftSize);
+                    frameData.push(resampleFreqData(freqData, sampleRate));
+                }
+
+                resolve(frameData);
+            });
+        });
+    }
+
+    // Radix-2 Cooley-Tukey FFT，O(n log n)
+    function radix2FFT(samples, n) {
+        // 位逆序排列
+        const re = new Float32Array(n);
+        const im = new Float32Array(n);
+        for(let i = 0; i < n; i++) re[i] = samples[i];
+
+        let j = 0;
+        for(let i = 1; i < n; i++) {
+            let bit = n >> 1;
+            for(; j & bit; bit >>= 1) j ^= bit;
+            j ^= bit;
+            if(i < j) {
+                [re[i], re[j]] = [re[j], re[i]];
+                [im[i], im[j]] = [im[j], im[i]];
+            }
+        }
+
+        // Cooley-Tukey 蝶形运算
+        for(let len = 2; len <= n; len <<= 1) {
+            const ang = -2 * Math.PI / len;
+            const wRe = Math.cos(ang), wIm = Math.sin(ang);
+            for(let i = 0; i < n; i += len) {
+                let curRe = 1, curIm = 0;
+                for(let k = 0; k < len / 2; k++) {
+                    const uRe = re[i + k], uIm = im[i + k];
+                    const vRe = re[i + k + len/2] * curRe - im[i + k + len/2] * curIm;
+                    const vIm = re[i + k + len/2] * curIm + im[i + k + len/2] * curRe;
+                    re[i + k] = uRe + vRe;
+                    im[i + k] = uIm + vIm;
+                    re[i + k + len/2] = uRe - vRe;
+                    im[i + k + len/2] = uIm - vIm;
+                    const newRe = curRe * wRe - curIm * wIm;
+                    curIm = curRe * wIm + curIm * wRe;
+                    curRe = newRe;
+                }
+            }
+        }
+
+        // 转为 0-255（模拟 getByteFrequencyData，dB 范围 -100 ~ -30）
+        const half = n / 2;
+        const result = new Uint8Array(half);
+        const minDb = -100, maxDb = -30;
+        for(let k = 0; k < half; k++) {
+            const mag = Math.sqrt(re[k] * re[k] + im[k] * im[k]) / n;
+            const db = mag > 1e-10 ? 20 * Math.log10(mag) : minDb;
+            const norm = Math.max(0, Math.min(1, (db - minDb) / (maxDb - minDb)));
+            result[k] = Math.floor(norm * 255);
+        }
+        return result;
+    }
+
+    // 将 FFT 结果重采样为当前样式所需的频谱数量
+    function resampleFreqData(freqData, sampleRate) {
+        const binCount = freqData.length;
+        const s = Math.floor(S.freq.start * binCount);
+        const e = Math.floor(S.freq.end * binCount);
+        const sub = freqData.slice(s, e);
+
+        const target = S.style === 'bar' ? S.cfg.bar.count : S.cfg.ripple.count;
+        const res = [];
+        const step = sub.length / target;
+
+        for(let i = 0; i < target; i++) {
+            const idx = Math.floor(i * step);
+            res.push(sub[idx] || 0);
+        }
+        return res;
+    }
+
+    // 用指定频谱数据绘制一帧（不依赖实时 analyser）
+    function drawWithData(data) {
+        const { width: w, height: h } = S.canvas;
+        S.ctx.clearRect(0, 0, w, h);
+
+        if(S.img) S.ctx.drawImage(S.img, 0, 0, w, h);
+        else {
+            S.ctx.fillStyle = '#111';
+            S.ctx.fillRect(0, 0, w, h);
+        }
+
+        if(S.style === 'bar') drawBar(data, w, h);
+        else drawRipple(data, w, h);
+    }
+
+    function resetRenderState(btn, stats) {
+        S.rendering = false;
+        S.renderCancelled = false;
+        btn.textContent = "渲染导出";
+        btn.classList.replace('btn-primary', 'btn-danger');
+        btn.onclick = toggleRender;
+        stats.style.display = 'none';
     }
 
     return { init };
@@ -799,4 +989,3 @@ window.onload = Viz.init;
 </script>
 </body>
 </html>
-
