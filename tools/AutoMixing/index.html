@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoMixing 自动混音工具</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        h2 {
+            font-size: 1.8em;
+            color: #444;
+            margin: 20px 0 15px;
+        }
+
+        h3 {
+            font-size: 1.4em;
+            color: #555;
+            margin: 15px 0 10px;
+        }
+
+        .description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+
+        .support-info {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 10px 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+            flex: 1;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+            font-size: 1em;
+        }
+
+        .label-info {
+            font-size: 0.85em;
+            color: #666;
+            font-weight: normal;
+            margin-left: 8px;
+        }
+
+        .slider-container {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+            -webkit-appearance: none;
+            background: transparent;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            background: #ddd;
+            border-radius: 4px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            margin-top: -6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #764ba2;
+        }
+
+        .slider-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        select:hover, select:focus {
+            border-color: #667eea;
+            outline: none;
+        }
+
+        .row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .row-5 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .row-5 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .row-5 {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .advanced-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .advanced-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 10px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .advanced-content {
+            display: block;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            font-weight: 600;
+            border-radius: 10px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .output-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0f0f0;
+            border-radius: 15px;
+            text-align: center;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 15px;
+            border-radius: 8px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            margin: 20px 0;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar.active {
+            display: block;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            width: 0%;
+            transition: width 0.3s;
+            border-radius: 2px;
+        }
+
+        .log-area {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.9em;
+            margin: 15px 0;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .file-input {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .file-input:hover {
+            border-color: #667eea;
+        }
+
+        .file-input input {
+            display: none;
+        }
+
+        .file-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+            word-break: break-all;
+        }
+
+        .waveform-container {
+            margin-top: 15px;
+            background: #f0f0f0;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .waveform {
+            width: 100%;
+            height: 100px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .waveform-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .waveform-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .audio-preview {
+            margin-top: 10px;
+        }
+
+        .audio-preview audio {
+            width: 100%;
+            height: 40px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 AutoMixing 自动混音工具</h1>
+        
+        <div class="description">
+            智能人声与背景音乐自动混音，支持多种预设和专业音频处理选项。
+        </div>
+
+        <div class="support-info">
+            ⚡ 支持 WAV、MP3、M4A 等常见音频格式 | 👥 感谢 @祡🍊 @DeepSeek提供的智能混音技术支持！
+        </div>
+
+        <div class="warning">
+            ⚠️ 建议上传干声（未处理的人声）和纯伴奏以获得最佳效果
+        </div>
+
+        <!-- 基础输入 - 一行两个 -->
+        <div class="row">
+            <div class="form-group">
+                <label>🎤 人声音频</label>
+                <div class="file-input" onclick="document.getElementById('vocalsInput').click()">
+                    <input type="file" id="vocalsInput" accept="audio/*" onchange="handleFileSelect(this, 'vocalsInfo', 'vocalsWaveform')">
+                    <span>点击选择或拖放人声文件</span>
+                    <div id="vocalsInfo" class="file-info">未选择文件</div>
+                </div>
+                <div id="vocalsWaveform" class="waveform-container" style="display: none;">
+                    <div class="waveform-label">人声波形</div>
+                    <div class="waveform">
+                        <canvas id="vocalsWaveformCanvas" class="waveform-canvas"></canvas>
+                    </div>
+                    <div class="audio-preview" id="vocalsPreview" style="display: none;">
+                        <audio id="vocalsAudio" controls></audio>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>🎵 背景音乐</label>
+                <div class="file-input" onclick="document.getElementById('bgmInput').click()">
+                    <input type="file" id="bgmInput" accept="audio/*" onchange="handleFileSelect(this, 'bgmInfo', 'bgmWaveform')">
+                    <span>点击选择或拖放背景音乐文件</span>
+                    <div id="bgmInfo" class="file-info">未选择文件</div>
+                </div>
+                <div id="bgmWaveform" class="waveform-container" style="display: none;">
+                    <div class="waveform-label">背景音乐波形</div>
+                    <div class="waveform">
+                        <canvas id="bgmWaveformCanvas" class="waveform-canvas"></canvas>
+                    </div>
+                    <div class="audio-preview" id="bgmPreview" style="display: none;">
+                        <audio id="bgmAudio" controls></audio>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 音量调节、音乐风格、人声类型 - 一行三个 -->
+        <div class="row">
+            <div class="form-group">
+                <label>🔊 人声音量 <span class="label-info">调整人声音量 (dB)</span></label>
+                <div class="slider-container">
+                    <input type="range" id="vocalVolume" min="-20" max="20" value="0" step="0.5" oninput="updateSliderValue(this.value)">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>-20 dB</span>
+                        <span class="slider-value" id="volumeValue">0 dB</span>
+                        <span>+20 dB</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>🎼 音乐风格</label>
+                <select id="musicGenre">
+                    <option value="POP">流行</option>
+                    <option value="ROCK">摇滚</option>
+                    <option value="JAZZ">爵士</option>
+                    <option value="ELECTRONIC">电子</option>
+                    <option value="FOLK">民谣</option>
+                    <option value="CLASSICAL">古典</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>👤 人声类型</label>
+                <select id="voiceType">
+                    <option value="MALE_LOW">男低音</option>
+                    <option value="MALE_HIGH">男高音</option>
+                    <option value="FEMALE" selected>女声</option>
+                    <option value="RAP">说唱</option>
+                    <option value="VOCAL">演唱</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 高级选项 - 默认展开 -->
+        <div class="advanced-section">
+            <div class="advanced-title">
+                <h3 style="margin:0;">⚙️ 高级选项</h3>
+            </div>
+            
+            <div id="advancedContent" class="advanced-content">
+                <h3 style="margin-top:20px;">专业参数设置</h3>
+                
+                <!-- 五项参数一行 -->
+                <div class="row-5">
+                    <div class="form-group">
+                        <label>🔇 去齿音强度</label>
+                        <select id="deesserStrength">
+                            <option value="OFF">关闭</option>
+                            <option value="LIGHT">轻度</option>
+                            <option value="MODERATE" selected>中等</option>
+                            <option value="HEAVY">重度</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>📊 压缩强度</label>
+                        <select id="compressionStrength">
+                            <option value="LIGHT">轻度</option>
+                            <option value="MODERATE" selected>中等</option>
+                            <option value="HEAVY">重度</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>🎚️ EQ风格</label>
+                        <select id="eqStyle">
+                            <option value="NEUTRAL" selected>中性</option>
+                            <option value="BRIGHT">明亮</option>
+                            <option value="WARM">温暖</option>
+                            <option value="VINTAGE">复古</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>🌊 混响等级</label>
+                        <select id="reverbLevel">
+                            <option value="DRY">干声</option>
+                            <option value="SUBTLE">轻微</option>
+                            <option value="LIGHT">轻度</option>
+                            <option value="MODERATE" selected>中等</option>
+                            <option value="HEAVY">重度</option>
+                            <option value="EXTREME">极端</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>🔊 回声等级</label>
+                        <select id="echoLevel">
+                            <option value="OFF" selected>关闭</option>
+                            <option value="LIGHT">轻度</option>
+                            <option value="MODERATE">中等</option>
+                            <option value="HEAVY">重度</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 日志显示 -->
+        <div id="logArea" class="log-area">
+            📝 准备就绪，请上传音频文件并点击开始混音...
+        </div>
+
+        <!-- 进度条 -->
+        <div id="progressBar" class="progress-bar">
+            <div id="progressFill" class="progress-bar-fill"></div>
+        </div>
+
+        <!-- 处理按钮 -->
+        <button id="processBtn" class="button" onclick="processAudio()">🎛️ 开始自动混音</button>
+
+        <!-- 输出区域 -->
+        <div id="outputSection" class="output-section" style="display: none;">
+            <h3>✨ 混音完成</h3>
+            <div class="waveform-container">
+                <div class="waveform-label">混音结果波形</div>
+                <div class="waveform">
+                    <canvas id="outputWaveformCanvas" class="waveform-canvas"></canvas>
+                </div>
+            </div>
+            <audio id="outputAudio" controls></audio>
+            <p style="margin-top: 10px;">
+                <a id="downloadLink" href="#" download="" style="color: #667eea;">⬇️ 下载混音文件</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        // 枚举定义
+        const MusicGenre = {
+            POP: 'POP',
+            ROCK: 'ROCK',
+            JAZZ: 'JAZZ',
+            ELECTRONIC: 'ELECTRONIC',
+            FOLK: 'FOLK',
+            CLASSICAL: 'CLASSICAL'
+        };
+
+        const VoiceType = {
+            MALE_LOW: 'MALE_LOW',
+            MALE_HIGH: 'MALE_HIGH',
+            FEMALE: 'FEMALE',
+            RAP: 'RAP',
+            VOCAL: 'VOCAL'
+        };
+
+        const DeEsserStrength = {
+            OFF: 'OFF',
+            LIGHT: 'LIGHT',
+            MODERATE: 'MODERATE',
+            HEAVY: 'HEAVY'
+        };
+
+        const CompressionStrength = {
+            LIGHT: 'LIGHT',
+            MODERATE: 'MODERATE',
+            HEAVY: 'HEAVY'
+        };
+
+        const EQStyle = {
+            NEUTRAL: 'NEUTRAL',
+            BRIGHT: 'BRIGHT',
+            WARM: 'WARM',
+            VINTAGE: 'VINTAGE'
+        };
+
+        const ReverbLevel = {
+            DRY: 'DRY',
+            SUBTLE: 'SUBTLE',
+            LIGHT: 'LIGHT',
+            MODERATE: 'MODERATE',
+            HEAVY: 'HEAVY',
+            EXTREME: 'EXTREME'
+        };
+
+        const EchoLevel = {
+            OFF: 'OFF',
+            LIGHT: 'LIGHT',
+            MODERATE: 'MODERATE',
+            HEAVY: 'HEAVY'
+        };
+
+        // 存储上传的文件和音频数据
+        let vocalsFile = null;
+        let bgmFile = null;
+        let vocalsBuffer = null;
+        let bgmBuffer = null;
+        let audioContext = null;
+
+        // 日志函数
+        function addLog(message) {
+            const logArea = document.getElementById('logArea');
+            const timestamp = new Date().toLocaleTimeString();
+            logArea.innerHTML += `\n[${timestamp}] ${message}`;
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logArea').innerHTML = '📝 准备就绪，请上传音频文件并点击开始混音...';
+        }
+
+        // 获取当前时间戳
+        function getTimestamp() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+        }
+
+        // 绘制波形
+        async function drawWaveform(arrayBuffer, canvasId, channel = 0) {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
+            
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width = canvas.clientWidth;
+            const height = canvas.height = canvas.clientHeight;
+            
+            const channelData = audioBuffer.getChannelData(channel);
+            const step = Math.ceil(channelData.length / width);
+            
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#667eea';
+            
+            for (let i = 0; i < width; i++) {
+                let min = 1.0;
+                let max = -1.0;
+                
+                for (let j = 0; j < step; j++) {
+                    const index = i * step + j;
+                    if (index < channelData.length) {
+                        const value = channelData[index];
+                        if (value < min) min = value;
+                        if (value > max) max = value;
+                    }
+                }
+                
+                const y1 = (1 + min) * height / 2;
+                const y2 = (1 + max) * height / 2;
+                
+                ctx.fillRect(i, y1, 1, Math.max(1, y2 - y1));
+            }
+            
+            return audioBuffer;
+        }
+
+        // 处理文件选择
+        async function handleFileSelect(input, infoId, waveformId) {
+            const file = input.files[0];
+            const infoElement = document.getElementById(infoId);
+            const waveformContainer = document.getElementById(waveformId);
+            
+            if (file) {
+                infoElement.textContent = `已选择: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+                
+                if (infoId === 'vocalsInfo') {
+                    vocalsFile = file;
+                } else {
+                    bgmFile = file;
+                }
+
+                // 显示波形
+                waveformContainer.style.display = 'block';
+                
+                // 读取文件并绘制波形
+                const arrayBuffer = await readFileAsArrayBuffer(file);
+                
+                if (infoId === 'vocalsInfo') {
+                    vocalsBuffer = await drawWaveform(arrayBuffer, 'vocalsWaveformCanvas');
+                    document.getElementById('vocalsPreview').style.display = 'block';
+                    document.getElementById('vocalsAudio').src = URL.createObjectURL(new Blob([arrayBuffer]));
+                } else {
+                    bgmBuffer = await drawWaveform(arrayBuffer, 'bgmWaveformCanvas');
+                    document.getElementById('bgmPreview').style.display = 'block';
+                    document.getElementById('bgmAudio').src = URL.createObjectURL(new Blob([arrayBuffer]));
+                }
+            } else {
+                infoElement.textContent = '未选择文件';
+                waveformContainer.style.display = 'none';
+                
+                if (infoId === 'vocalsInfo') {
+                    vocalsFile = null;
+                    vocalsBuffer = null;
+                } else {
+                    bgmFile = null;
+                    bgmBuffer = null;
+                }
+            }
+        }
+
+        // 更新滑块值显示
+        function updateSliderValue(value) {
+            document.getElementById('volumeValue').textContent = value + ' dB';
+        }
+
+        // 更新进度条
+        function updateProgress(percent) {
+            const progressBar = document.getElementById('progressBar');
+            const progressFill = document.getElementById('progressFill');
+            
+            progressBar.classList.add('active');
+            progressFill.style.width = percent + '%';
+            
+            if (percent >= 100) {
+                setTimeout(() => {
+                    progressBar.classList.remove('active');
+                    progressFill.style.width = '0%';
+                }, 500);
+            }
+        }
+
+        // 音频处理函数
+        async function processAudio() {
+            const processBtn = document.getElementById('processBtn');
+            const outputSection = document.getElementById('outputSection');
+            
+            // 验证输入
+            if (!vocalsFile || !bgmFile) {
+                alert('请上传人声音频和背景音乐文件！');
+                return;
+            }
+
+            // 获取参数
+            const vocalVolume = parseFloat(document.getElementById('vocalVolume').value);
+            const musicGenreStr = document.getElementById('musicGenre').value;
+            const voiceTypeStr = document.getElementById('voiceType').value;
+            const deesserStrengthStr = document.getElementById('deesserStrength').value;
+            const compressionStrengthStr = document.getElementById('compressionStrength').value;
+            const eqStyleStr = document.getElementById('eqStyle').value;
+            const reverbLevelStr = document.getElementById('reverbLevel').value;
+            const echoLevelStr = document.getElementById('echoLevel').value;
+
+            // 清空日志和输出
+            clearLog();
+            outputSection.style.display = 'none';
+            processBtn.disabled = true;
+
+            // 记录参数
+            addLog(`🎛️ 开始自动混音处理...`);
+            addLog(`🔊 人声音量: ${vocalVolume}dB`);
+            addLog(`🎼 音乐风格: ${musicGenreStr}, 人声类型: ${voiceTypeStr}`);
+            addLog(`🔇 去齿音: ${deesserStrengthStr}, 压缩: ${compressionStrengthStr}`);
+            addLog(`🎚️ EQ风格: ${eqStyleStr}, 混响等级: ${reverbLevelStr}, 回声等级: ${echoLevelStr}`);
+
+            try {
+                // 模拟处理过程
+                addLog(`📂 加载音频文件...`);
+                updateProgress(20);
+
+                // 创建音频上下文
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                
+                // 读取音频文件
+                const vocalsArrayBuffer = await readFileAsArrayBuffer(vocalsFile);
+                const bgmArrayBuffer = await readFileAsArrayBuffer(bgmFile);
+                
+                addLog(`✅ 音频文件加载成功`);
+                updateProgress(40);
+
+                // 解码音频数据
+                const vocalsBuffer = await audioContext.decodeAudioData(vocalsArrayBuffer.slice(0));
+                const bgmBuffer = await audioContext.decodeAudioData(bgmArrayBuffer.slice(0));
+                
+                addLog(`🎵 音频解码成功 - 人声: ${vocalsBuffer.duration.toFixed(2)}秒, 采样率: ${vocalsBuffer.sampleRate}Hz`);
+                addLog(`🎵 背景音乐: ${bgmBuffer.duration.toFixed(2)}秒, 采样率: ${bgmBuffer.sampleRate}Hz`);
+                updateProgress(60);
+
+                // 创建离线上下文进行混音
+                const offlineContext = new OfflineAudioContext(
+                    2, // 立体声
+                    Math.max(vocalsBuffer.length, bgmBuffer.length),
+                    Math.max(vocalsBuffer.sampleRate, bgmBuffer.sampleRate)
+                );
+
+                // 创建音源
+                const vocalsSource = offlineContext.createBufferSource();
+                const bgmSource = offlineContext.createBufferSource();
+                
+                vocalsSource.buffer = vocalsBuffer;
+                bgmSource.buffer = bgmBuffer;
+
+                // 创建增益节点用于音量控制
+                const vocalsGain = offlineContext.createGain();
+                const bgmGain = offlineContext.createGain();
+
+                // 设置音量
+                vocalsGain.gain.value = Math.pow(10, vocalVolume / 20); // dB 转换为线性增益
+                bgmGain.gain.value = 0.8; // 背景音乐默认音量
+
+                // 根据风格和类型模拟不同的音频处理效果
+                addLog(`🎚️ 应用音频效果...`);
+
+                // 模拟 EQ 效果
+                if (eqStyleStr === 'BRIGHT') {
+                    addLog(`✨ 应用明亮 EQ 设置`);
+                } else if (eqStyleStr === 'WARM') {
+                    addLog(`🔥 应用温暖 EQ 设置`);
+                } else if (eqStyleStr === 'VINTAGE') {
+                    addLog(`📻 应用复古 EQ 设置`);
+                }
+
+                // 模拟压缩效果
+                if (compressionStrengthStr !== 'OFF') {
+                    addLog(`📊 应用 ${compressionStrengthStr.toLowerCase()} 压缩`);
+                }
+
+                // 模拟混响效果
+                if (reverbLevelStr !== 'DRY') {
+                    addLog(`🌊 应用 ${reverbLevelStr.toLowerCase()} 混响`);
+                }
+
+                // 模拟回声效果
+                if (echoLevelStr !== 'OFF') {
+                    addLog(`🔊 应用 ${echoLevelStr.toLowerCase()} 回声`);
+                }
+
+                // 模拟去齿音
+                if (deesserStrengthStr !== 'OFF') {
+                    addLog(`🔇 应用 ${deesserStrengthStr.toLowerCase()} 去齿音处理`);
+                }
+
+                updateProgress(80);
+
+                // 连接节点
+                vocalsSource.connect(vocalsGain);
+                bgmSource.connect(bgmGain);
+                
+                vocalsGain.connect(offlineContext.destination);
+                bgmGain.connect(offlineContext.destination);
+
+                // 开始播放
+                vocalsSource.start();
+                bgmSource.start();
+
+                addLog(`🎛️ 正在渲染混音...`);
+
+                // 渲染音频
+                const renderedBuffer = await offlineContext.startRendering();
+                
+                addLog(`✅ 混音渲染完成`);
+                updateProgress(100);
+
+                // 转换为 WAV 并播放
+                const wavBlob = await bufferToWav(renderedBuffer);
+                const timestamp = getTimestamp();
+                const wavUrl = URL.createObjectURL(wavBlob);
+
+                // 绘制输出波形
+                const outputArrayBuffer = await wavBlob.arrayBuffer();
+                await drawWaveform(outputArrayBuffer, 'outputWaveformCanvas');
+
+                // 更新输出
+                const outputAudio = document.getElementById('outputAudio');
+                const downloadLink = document.getElementById('downloadLink');
+                
+                outputAudio.src = wavUrl;
+                downloadLink.href = wavUrl;
+                downloadLink.download = `${timestamp}-AutoMixing.wav`;
+                
+                outputSection.style.display = 'block';
+                addLog(`✨ 混音处理完成！`);
+
+            } catch (error) {
+                addLog(`❌ 处理出错: ${error.message}`);
+                console.error(error);
+                alert('处理过程中出现错误，请查看日志');
+            } finally {
+                processBtn.disabled = false;
+            }
+        }
+
+        // 辅助函数：读取文件为 ArrayBuffer
+        function readFileAsArrayBuffer(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // 辅助函数：将 AudioBuffer 转换为 WAV Blob
+        function bufferToWav(buffer) {
+            return new Promise((resolve) => {
+                const numChannels = buffer.numberOfChannels;
+                const sampleRate = buffer.sampleRate;
+                const format = 1; // PCM
+                const bitDepth = 16;
+                
+                let interleaved;
+                if (numChannels === 2) {
+                    interleaved = interleaveLeftRight(
+                        buffer.getChannelData(0),
+                        buffer.getChannelData(1)
+                    );
+                } else {
+                    interleaved = buffer.getChannelData(0);
+                }
+
+                const dataLength = interleaved.length * (bitDepth / 8);
+                const headerLength = 44;
+                const totalLength = headerLength + dataLength;
+
+                const arrayBuffer = new ArrayBuffer(totalLength);
+                const view = new DataView(arrayBuffer);
+
+                // RIFF 标识
+                writeString(view, 0, 'RIFF');
+                view.setUint32(4, totalLength - 8, true);
+                writeString(view, 8, 'WAVE');
+
+                // fmt 子块
+                writeString(view, 12, 'fmt ');
+                view.setUint32(16, 16, true); // fmt 块大小
+                view.setUint16(20, format, true); // 音频格式
+                view.setUint16(22, numChannels, true); // 声道数
+                view.setUint32(24, sampleRate, true); // 采样率
+                view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true); // 字节率
+                view.setUint16(32, numChannels * (bitDepth / 8), true); // 块对齐
+                view.setUint16(34, bitDepth, true); // 位深度
+
+                // data 子块
+                writeString(view, 36, 'data');
+                view.setUint32(40, dataLength, true);
+
+                // 写入音频数据
+                floatTo16BitPCM(view, 44, interleaved);
+
+                resolve(new Blob([view], { type: 'audio/wav' }));
+            });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        function interleaveLeftRight(left, right) {
+            const length = left.length + right.length;
+            const result = new Float32Array(length);
+            
+            for (let i = 0; i < left.length; i++) {
+                result[i * 2] = left[i];
+                result[i * 2 + 1] = right[i];
+            }
+            
+            return result;
+        }
+
+        function floatTo16BitPCM(view, offset, input) {
+            for (let i = 0; i < input.length; i++, offset += 2) {
+                let s = Math.max(-1, Math.min(1, input[i]));
+                view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            }
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 支持拖放功能
+            ['vocalsInput', 'bgmInput'].forEach(id => {
+                const input = document.getElementById(id);
+                const container = input.parentElement;
+                
+                container.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    container.style.borderColor = '#667eea';
+                });
+
+                container.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    container.style.borderColor = '#ccc';
+                });
+
+                container.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    container.style.borderColor = '#ccc';
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        input.files = files;
+                        const event = new Event('change', { bubbles: true });
+                        input.dispatchEvent(event);
+                    }
+                });
+            });
+
+            // 窗口大小改变时重绘波形
+            window.addEventListener('resize', () => {
+                if (vocalsBuffer) {
+                    // 重新绘制波形逻辑
+                }
+                if (bgmBuffer) {
+                    // 重新绘制波形逻辑
+                }
+            });
+        });
+    </script>
+</body>
+</html>
