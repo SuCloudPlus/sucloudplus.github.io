@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF 页面导出工具</title>
+<style>
+  :root {
+    --bg: #f4f6fa;
+    --panel: #ffffff;
+    --border: #e3e8ef;
+    --text: #1e293b;
+    --muted: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --danger: #dc2626;
+    --ok: #059669;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
+  header h1 { margin: 0 0 6px; font-size: 22px; }
+  header .sub { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* ---------- 加载区 ---------- */
+  .url-row { display: flex; gap: 10px; }
+  .url-row input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .url-row input:focus { border-color: var(--accent); }
+
+  .drop-zone {
+    margin-top: 14px;
+    border: 2px dashed #cbd5e1;
+    border-radius: var(--radius);
+    padding: 26px 16px;
+    text-align: center;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all .15s;
+    background: #fafbfd;
+  }
+  .drop-zone:hover { border-color: var(--accent); background: #f0f6ff; }
+  .drop-zone.dragover { border-color: var(--accent); background: #e6f0ff; color: var(--accent); }
+  .drop-zone .drop-icon { font-size: 28px; margin-bottom: 6px; }
+  .drop-zone .link { color: var(--accent); text-decoration: underline; }
+
+  /* ---------- 按钮 ---------- */
+  .btn {
+    padding: 9px 16px;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--text);
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn.primary:hover:not(:disabled) { background: var(--accent-hover); color: #fff; }
+  .btn.small { padding: 6px 10px; font-size: 13px; width: 100%; }
+
+  /* ---------- 控制区 ---------- */
+  .controls-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px 20px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+  .field > span { display: flex; justify-content: space-between; align-items: center; }
+  .field input[type="number"],
+  .field select {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--text);
+    background: #fff;
+    outline: none;
+  }
+  .field input[type="number"]:focus,
+  .field select:focus { border-color: var(--accent); }
+  .field input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .field.disabled { opacity: .45; pointer-events: none; }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--border);
+  }
+  .status { font-size: 13px; color: var(--muted); }
+  .status.error { color: var(--danger); }
+  .status.ok { color: var(--ok); }
+
+  /* ---------- 页面列表 ---------- */
+  .page-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px;
+  }
+  .page-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .page-preview {
+    background: #eef2f7;
+    border-radius: 6px;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    color: #94a3b8;
+    font-size: 13px;
+  }
+  .page-preview canvas { max-width: 100%; height: auto; display: block; }
+  .page-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: var(--muted);
+    gap: 8px;
+  }
+  .page-meta .page-label { color: var(--text); font-weight: 600; font-size: 13px; }
+  .page-dims { font-variant-numeric: tabular-nums; }
+
+  .tip {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.7;
+    background: #fffbea;
+    border: 1px solid #fde68a;
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-top: 16px;
+  }
+  .tip b { color: #92400e; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>PDF 页面导出工具</h1>
+    <p class="sub">在线链接 / 本地文件 · 单页导出 · 全部导出 · 拼接长图 · 分辨率可调</p>
+  </header>
+
+  <!-- 加载区 -->
+  <section class="panel">
+    <div class="url-row">
+      <input id="urlInput" type="text" placeholder="粘贴在线 PDF 链接（目标服务器需允许跨域），例如 https://example.com/file.pdf">
+      <button id="loadUrlBtn" class="btn primary" type="button">打开链接</button>
+    </div>
+    <div id="dropZone" class="drop-zone">
+      <div class="drop-inner">
+        <div class="drop-icon">📄</div>
+        <div>拖拽 PDF 文件到此处，或 <span class="link">点击选择文件</span></div>
+      </div>
+      <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
+    </div>
+  </section>
+
+  <!-- 控制区 -->
+  <section class="panel" id="controls" hidden>
+    <div class="controls-grid">
+      <label class="field">
+        <span>分辨率倍率</span>
+        <input id="scaleInput" type="number" value="2" min="0.5" max="10" step="0.5">
+      </label>
+      <label class="field">
+        <span>输出格式</span>
+        <select id="formatSelect">
+          <option value="image/png">PNG（无损）</option>
+          <option value="image/jpeg">JPEG（体积小）</option>
+        </select>
+      </label>
+      <label class="field" id="qualityField">
+        <span>JPEG 质量 <b id="qualityValue">0.92</b></span>
+        <input id="qualityInput" type="range" min="0.5" max="1" step="0.02" value="0.92">
+      </label>
+      <label class="field">
+        <span>批量下载方式</span>
+        <select id="downloadMode">
+          <option value="zip">打包为 ZIP</option>
+          <option value="single">逐张下载</option>
+        </select>
+      </label>
+    </div>
+    <div class="actions">
+      <button id="exportAllBtn" class="btn" type="button">导出全部页</button>
+      <button id="exportLongBtn" class="btn" type="button">导出拼接长图</button>
+      <span id="status" class="status"></span>
+    </div>
+  </section>
+
+  <!-- 页面列表 -->
+  <main id="pageList" class="page-list"></main>
+
+  <div class="tip">
+    <b>使用提示：</b><br>
+    1. 倍率越大图片越清晰，文件也越大。A4 页面在倍率 2 时约 1190×1684 像素。<br>
+    2. 打开在线链接时，若对方服务器未开启 CORS 会加载失败——此时请先下载到本地再拖入。<br>
+    3. 拼接长图受浏览器画布尺寸限制（单边 ≤ 32767、总面积 ≤ 2.68 亿像素），超出时会提示自动降低分辨率。<br>
+    4. 逐张下载可能被浏览器拦截，建议页数较多时选择「打包为 ZIP」。
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  if (typeof pdfjsLib === 'undefined') {
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div style="padding:16px;background:#fee;color:#900;">PDF.js 加载失败，请检查网络后刷新页面。</div>');
+    return;
+  }
+
+  /* ======================== 常量 ======================== */
+  const CDN_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = CDN_BASE + 'pdf.worker.min.js';
+
+  const BASE_PARAMS = {
+    cMapUrl: CDN_BASE + 'cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: CDN_BASE + 'standard_fonts/'
+  };
+
+  const PREVIEW_WIDTH = 200;          // 预览图目标宽度(px)
+  const MAX_CANVAS_SIDE = 32767;      // 画布单边上限
+  const MAX_CANVAS_AREA = 268435456;  // 画布面积上限 (2^28)
+
+  /* ======================== 元素 ======================== */
+  const $ = function (id) { return document.getElementById(id); };
+  const els = {
+    urlInput:      $('urlInput'),
+    loadUrlBtn:    $('loadUrlBtn'),
+    dropZone:      $('dropZone'),
+    fileInput:     $('fileInput'),
+    controls:      $('controls'),
+    scaleInput:    $('scaleInput'),
+    formatSelect:  $('formatSelect'),
+    qualityField:  $('qualityField'),
+    qualityInput:  $('qualityInput'),
+    qualityValue:  $('qualityValue'),
+    downloadMode:  $('downloadMode'),
+    exportAllBtn:  $('exportAllBtn'),
+    exportLongBtn: $('exportLongBtn'),
+    status:        $('status'),
+    pageList:      $('pageList')
+  };
+
+  /* ======================== 状态 ======================== */
+  let pdfDoc = null;
+  let fileName = 'document';
+  let busy = false;
+  let previewScale = 0.3;
+  const pageBaseSizes = new Map();  // pageNum -> {width, height} (scale=1)
+
+  /* ======================== 工具函数 ======================== */
+  function setStatus(msg, type) {
+    els.status.textContent = msg || '';
+    els.status.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function sanitizeName(name) {
+    return String(name || 'document')
+      .replace(/\.pdf$/i, '')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .trim() || 'document';
+  }
+
+  function getScale() {
+    const v = parseFloat(els.scaleInput.value);
+    return (isFinite(v) && v > 0) ? v : 2;
+  }
+
+  function getFormat() {
+    const type = els.formatSelect.value;
+    return {
+      type: type,
+      ext: type === 'image/png' ? 'png' : 'jpg',
+      quality: parseFloat(els.qualityInput.value)
+    };
+  }
+
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
+  function canvasToBlob(canvas, type, quality) {
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) {
+        if (blob) resolve(blob);
+        else reject(new Error('图片生成失败，画布可能超出浏览器限制'));
+      }, type, quality);
+    });
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 15000);
+  }
+
+  function setBusy(v) {
+    busy = v;
+    const btns = [els.exportAllBtn, els.exportLongBtn, els.loadUrlBtn];
+    btns.forEach(function (b) { b.disabled = v; });
+    els.urlInput.disabled = v;
+    els.fileInput.disabled = v;
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.export-one'),
+      function (b) { b.disabled = v; }
+    );
+  }
+
+  /* ======================== PDF 加载 ======================== */
+  async function resetPdf() {
+    if (pdfDoc) {
+      try { await pdfDoc.destroy(); } catch (e) { /* ignore */ }
+      pdfDoc = null;
+    }
+    pageBaseSizes.clear();
+    els.pageList.innerHTML = '';
+    els.controls.hidden = true;
+  }
+
+  async function loadPdf(source, name) {
+    if (busy) return;
+    await resetPdf();
+    setBusy(true);
+    setStatus('正在加载 PDF …');
+
+    try {
+      const params = Object.assign({}, BASE_PARAMS);
+      if (source instanceof ArrayBuffer) {
+        params.data = source;
+      } else {
+        params.url = source;
+      }
+      const doc = await pdfjsLib.getDocument(params).promise;
+      pdfDoc = doc;
+      fileName = sanitizeName(name);
+
+      await buildPageList();
+      els.controls.hidden = false;
+      updateQualityField();
+      setStatus('已加载：共 ' + pdfDoc.numPages + ' 页', 'ok');
+    } catch (err) {
+      console.error(err);
+      const msg = (err && err.message) ? err.message : String(err);
+      setStatus('加载失败：' + msg + '（在线链接常见原因是服务器未开启跨域 CORS）', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function loadFromFile(file) {
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      setStatus('请选择 PDF 文件', 'error');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function () {
+      loadPdf(reader.result, file.name);
+    };
+    reader.onerror = function () {
+      setStatus('读取文件失败', 'error');
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function loadFromUrl(url) {
+    url = (url || '').trim();
+    if (!url) {
+      setStatus('请先输入 PDF 链接', 'error');
+      return;
+    }
+    let name = 'document';
+    try {
+      const u = new URL(url, location.href);
+      const seg = u.pathname.split('/').filter(Boolean).pop();
+      if (seg) name = decodeURIComponent(seg);
+    } catch (e) { /* ignore */ }
+    loadPdf(url, name);
+  }
+
+  /* ======================== 页面列表 ======================== */
+  const previewObserver = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      if (entry.isIntersecting) {
+        previewObserver.unobserve(entry.target);
+        renderPreview(entry.target);
+      }
+    });
+  }, { rootMargin: '300px 0px' });
+
+  async function buildPageList() {
+    els.pageList.innerHTML = '';
+    pageBaseSizes.clear();
+
+    const total = pdfDoc.numPages;
+
+    // 计算预览缩放比例
+    try {
+      const p1 = await pdfDoc.getPage(1);
+      const vp1 = p1.getViewport({ scale: 1 });
+      previewScale = PREVIEW_WIDTH / vp1.width;
+    } catch (e) {
+      previewScale = 0.3;
+    }
+
+    const frag = document.createDocumentFragment();
+    for (let i = 1; i <= total; i++) {
+      const card = document.createElement('div');
+      card.className = 'page-card';
+      card.dataset.page = String(i);
+      card.innerHTML =
+        '<div class="page-preview"><div>第 ' + i + ' 页</div></div>' +
+        '<div class="page-meta">' +
+          '<span class="page-label">第 ' + i + ' 页</span>' +
+          '<span class="page-dims"></span>' +
+        '</div>' +
+        '<button type="button" class="btn small export-one">导出此页</button>';
+
+      card.querySelector('.export-one').addEventListener('click', function () {
+        exportOnePage(i);
+      });
+
+      frag.appendChild(card);
+    }
+    els.pageList.appendChild(frag);
+
+    // 加入 DOM 后再观察，避免触发顺序问题
+    Array.prototype.forEach.call(
+      els.pageList.querySelectorAll('.page-card'),
+      function (c) { previewObserver.observe(c); }
+    );
+  }
+
+  async function renderPreview(card) {
+    if (!pdfDoc || card.dataset.done === '1') return;
+    card.dataset.done = '1';
+    const pageNum = Number(card.dataset.page);
+
+    try {
+      const page = await pdfDoc.getPage(pageNum);
+      if (!pdfDoc) return;
+
+      const baseVp = page.getViewport({ scale: 1 });
+      pageBaseSizes.set(pageNum, { width: baseVp.width, height: baseVp.height });
+
+      const vp = page.getViewport({ scale: previewScale });
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.floor(vp.width));
+      canvas.height = Math.max(1, Math.floor(vp.height));
+
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      await page.render({
+        canvasContext: ctx,
+        viewport: vp,
+        background: '#ffffff'
+      }).promise;
+
+      const holder = card.querySelector('.page-preview');
+      holder.innerHTML = '';
+      holder.appendChild(canvas);
+
+      updateCardDims(card);
+    } catch (e) {
+      console.error('预览渲染失败', pageNum, e);
+      card.dataset.done = '';
+    }
+  }
+
+  function updateCardDims(card) {
+    const n = Number(card.dataset.page);
+    const base = pageBaseSizes.get(n);
+    if (!base) return;
+    const s = getScale();
+    card.querySelector('.page-dims').textContent =
+      Math.round(base.width * s) + ' × ' + Math.round(base.height * s);
+  }
+
+  function updateAllDims() {
+    Array.prototype.forEach.call(
+      els.pageList.querySelectorAll('.page-card'),
+      updateCardDims
+    );
+  }
+
+  /* ======================== 渲染单页 ======================== */
+  async function renderPageToCanvas(pageNum, scale) {
+    const page = await pdfDoc.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.floor(viewport.width));
+    canvas.height = Math.max(1, Math.floor(viewport.height));
+
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({
+      canvasContext: ctx,
+      viewport: viewport,
+      background: '#ffffff'
+    }).promise;
+
+    return canvas;
+  }
+
+  /* ======================== 导出单页 ======================== */
+  async function exportOnePage(pageNum) {
+    if (busy || !pdfDoc) return;
+    setBusy(true);
+    setStatus('正在导出第 ' + pageNum + ' 页 …');
+
+    try {
+      const scale = getScale();
+      const fmt = getFormat();
+      const canvas = await renderPageToCanvas(pageNum, scale);
+      const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+      const pad = String(pdfDoc.numPages).length;
+
+      downloadBlob(blob,
+        fileName + '_p' + String(pageNum).padStart(pad, '0') + '.' + fmt.ext);
+
+      setStatus('第 ' + pageNum + ' 页已导出（' + canvas.width + ' × ' + canvas.height + '）', 'ok');
+
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch (err) {
+      console.error(err);
+      setStatus('导出失败：' + err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* ======================== 导出全部 ======================== */
+  async function exportAllPages() {
+    if (busy || !pdfDoc) return;
+    setBusy(true);
+
+    const scale = getScale();
+    const fmt = getFormat();
+    const total = pdfDoc.numPages;
+    const pad = String(total).length;
+    const mode = els.downloadMode.value;
+
+    try {
+      if (mode === 'zip') {
+        await ensureJSZip();
+
+        const zip = new JSZip();
+        for (let i = 1; i <= total; i++) {
+          setStatus('正在渲染 ' + i + '/' + total + ' …');
+          const canvas = await renderPageToCanvas(i, scale);
+          const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+          zip.file(fileName + '_p' + String(i).padStart(pad, '0') + '.' + fmt.ext, blob);
+          canvas.width = 0;
+          canvas.height = 0;
+          await sleep(0);
+        }
+
+        setStatus('正在打包 ZIP …');
+        const zipBlob = await zip.generateAsync(
+          { type: 'blob', compression: 'STORE' },
+          function (meta) {
+            setStatus('正在打包 ZIP … ' + meta.percent.toFixed(0) + '%');
+          }
+        );
+        downloadBlob(zipBlob, fileName + '_images.zip');
+        setStatus('全部 ' + total + ' 页已打包完成', 'ok');
+      } else {
+        for (let i = 1; i <= total; i++) {
+          setStatus('正在导出 ' + i + '/' + total + ' …');
+          const canvas = await renderPageToCanvas(i, scale);
+          const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+          downloadBlob(blob,
+            fileName + '_p' + String(i).padStart(pad, '0') + '.' + fmt.ext);
+          canvas.width = 0;
+          canvas.height = 0;
+          await sleep(400); // 缓解浏览器多文件下载拦截
+        }
+        setStatus('全部 ' + total + ' 页已导出', 'ok');
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('导出失败：' + err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* ======================== 拼接长图 ======================== */
+  function computeShrink(w, h) {
+    let s = 1;
+    const maxSide = Math.max(w, h);
+    if (maxSide > MAX_CANVAS_SIDE) s = Math.min(s, MAX_CANVAS_SIDE / maxSide);
+    if (w * h * s * s > MAX_CANVAS_AREA) {
+      s = Math.min(s, Math.sqrt(MAX_CANVAS_AREA / (w * h)));
+    }
+    return s;
+  }
+
+  async function computeLongLayout(scale) {
+    const metas = [];
+    let maxWidth = 0;
+    let totalHeight = 0;
+
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const vp = page.getViewport({ scale: scale });
+      const w = Math.max(1, Math.floor(vp.width));
+      const h = Math.max(1, Math.floor(vp.height));
+      metas.push({ page: page, w: w, h: h });
+      maxWidth = Math.max(maxWidth, w);
+      totalHeight += h;
+      if (i % 10 === 0) setStatus('正在计算尺寸 ' + i + '/' + pdfDoc.numPages + ' …');
+    }
+    return { metas: metas, width: maxWidth, height: totalHeight };
+  }
+
+  async function exportLongImage() {
+    if (busy || !pdfDoc) return;
+    setBusy(true);
+
+    try {
+      let scale = getScale();
+      let layout = await computeLongLayout(scale);
+
+      // 超出画布限制 → 自动降分辨率
+      const shrink = computeShrink(layout.width, layout.height);
+      if (shrink < 1) {
+        const nw = Math.round(layout.width * shrink);
+        const nh = Math.round(layout.height * shrink);
+        const ok = window.confirm(
+          '拼接长图尺寸为 ' + layout.width + ' × ' + layout.height + ' 像素，超出浏览器画布上限。\n\n' +
+          '将自动降低分辨率到约 ' + (shrink * 100).toFixed(0) + '%（' + nw + ' × ' + nh + '）。\n' +
+          '若仍不理想，请降低「分辨率倍率」后重试，或改用逐页导出。\n\n是否继续？'
+        );
+        if (!ok) { setStatus('已取消'); return; }
+        scale = scale * shrink;
+        layout = await computeLongLayout(scale);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = layout.width;
+      canvas.height = layout.height;
+
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      let y = 0;
+      const list = layout.metas;
+
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i];
+        setStatus('正在拼接 ' + (i + 1) + '/' + list.length + ' …');
+
+        const vp = m.page.getViewport({ scale: scale });
+        const pc = document.createElement('canvas');
+        pc.width = m.w;
+        pc.height = m.h;
+
+        const pctx = pc.getContext('2d', { alpha: false });
+        pctx.fillStyle = '#ffffff';
+        pctx.fillRect(0, 0, m.w, m.h);
+
+        await m.page.render({
+          canvasContext: pctx,
+          viewport: vp,
+          background: '#ffffff'
+        }).promise;
+
+        const x = Math.floor((layout.width - m.w) / 2); // 宽度不同时居中
+        ctx.drawImage(pc, x, y);
+        y += m.h;
+
+        pc.width = 0;
+        pc.height = 0;
+        await sleep(0);
+      }
+
+      const fmt = getFormat();
+      setStatus('正在生成图片文件 …');
+      const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+      downloadBlob(blob, fileName + '_long.' + fmt.ext);
+
+      setStatus('长图导出完成（' + canvas.width + ' × ' + canvas.height + '）', 'ok');
+      canvas.width = 0;
+      canvas.height = 0;
+    } catch (err) {
+      console.error(err);
+      setStatus('拼接失败：' + err.message + '（可尝试降低分辨率倍率）', 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /* ======================== JSZip 按需加载 ======================== */
+  let jszipPromise = null;
+  function ensureJSZip() {
+    if (window.JSZip) return Promise.resolve();
+    if (jszipPromise) return jszipPromise;
+    jszipPromise = new Promise(function (resolve, reject) {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.onload = function () { resolve(); };
+      s.onerror = function () { reject(new Error('JSZip 加载失败，请改用「逐张下载」')); };
+      document.head.appendChild(s);
+    });
+    return jszipPromise;
+  }
+
+  /* ======================== 事件绑定 ======================== */
+  // 链接加载
+  els.loadUrlBtn.addEventListener('click', function () {
+    loadFromUrl(els.urlInput.value);
+  });
+  els.urlInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') loadFromUrl(els.urlInput.value);
+  });
+
+  // 点击选择文件
+  els.dropZone.addEventListener('click', function () {
+    if (!busy) els.fileInput.click();
+  });
+  els.fileInput.addEventListener('change', function () {
+    const f = els.fileInput.files && els.fileInput.files[0];
+    if (f) loadFromFile(f);
+    els.fileInput.value = ''; // 允许重复选择同一文件
+  });
+
+  // 拖拽
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    els.dropZone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      els.dropZone.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    els.dropZone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (ev === 'dragleave') {
+        if (e.relatedTarget && els.dropZone.contains(e.relatedTarget)) return;
+      }
+      els.dropZone.classList.remove('dragover');
+    });
+  });
+  els.dropZone.addEventListener('drop', function (e) {
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) loadFromFile(files[0]);
+  });
+
+  // 阻止整页默认拖放行为
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('drop', function (e) { e.preventDefault(); });
+
+  // 参数变化
+  els.scaleInput.addEventListener('input', updateAllDims);
+  els.scaleInput.addEventListener('change', updateAllDims);
+
+  els.formatSelect.addEventListener('change', updateQualityField);
+  els.qualityInput.addEventListener('input', function () {
+    els.qualityValue.textContent = parseFloat(els.qualityInput.value).toFixed(2);
+  });
+
+  function updateQualityField() {
+    const isJpeg = els.formatSelect.value === 'image/jpeg';
+    els.qualityField.classList.toggle('disabled', !isJpeg);
+  }
+
+  // 导出按钮
+  els.exportAllBtn.addEventListener('click', exportAllPages);
+  els.exportLongBtn.addEventListener('click', exportLongImage);
+
+  // 初始化
+  updateQualityField();
+})();
+</script>
+</body>
+</html>
