@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文本模板图片生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    
+    <!-- ========================================== -->
+    <!-- 🌟 全局默认配置区域 (可随意修改) 🌟 -->
+    <!-- ========================================== -->
+    <script>
+        const CONFIG = {
+            // 面板位置: 'top' | 'bottom' | 'left' | 'right'
+            panelPosition: "right", 
+            
+            // 默认背景图路径 (留空则显示纯色)
+            bgImageUrl: "src/bg01.jpg", 
+            
+            // 预设的背景图列表（模拟文件夹）
+            bgImageFolder: [
+              "src/bg01.jpg"
+            ],
+
+            // 字体设置
+            defaultFont: "方正正中黑简体",
+            availableFonts: [
+                "方正正中黑简体", 
+                "得意黑", 
+                "Microsoft YaHei", 
+                "SimSun", 
+                "KaiTi", 
+                "Arial", 
+                "sans-serif"
+            ],
+
+            // 🌟 在线字体配置
+            // 注意：name 必须与 CSS 文件里定义的 font-family 名字一模一样
+            onlineFonts: [
+                 {
+                     name: "得意黑", 
+                     mainCss: "https://fontsapi.zeoseven.com/92/main/result.css",
+                     fallbackCss: "https://fontsapi-storage.zeoseven.com/92/main/result.css" // 可选
+                 }
+            ],
+
+            // 样式默认开关
+            defaultStyles: {
+                grid: true,      // 田字格
+                italic: false,   // 斜体
+                bold: false,     // 加粗
+                strike: false    // 删除线
+            },
+
+            // 参数默认值
+            textColor: "#5586FF", // 文字颜色
+            lineColor: "#7BAFE8", // 线条颜色
+            fontSize: 87, // 字号大小
+            textRatio: 0.75, // 文字大小比例 (占格子)
+            colGap: -2.0, // 列间距
+            lineGap: -2.0, // 行间距
+            textYOffset: 5, // 文字垂直微调
+            borderWidth: 2, // 外框线宽
+            dashWidth: 1.0, // 内虚线宽
+            dashDensity: 2, // 虚线密度
+            resolution: 2 // 清晰度倍率
+        };
+    </script>
+
+    <style>
+        :root { --panel-bg: #fff; --border-color: #e0e0e0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #f0f4f8;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            color: #333;
+        }
+
+        /* 布局控制 */
+        body.layout-bottom { flex-direction: column; }
+        body.layout-top { flex-direction: column-reverse; }
+        body.layout-left { flex-direction: row-reverse; }
+        body.layout-right { flex-direction: row; }
+
+        /* 预览区 */
+        .preview-area {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        #capture-container {
+            position: relative;
+            width: 100%;
+            max-width: 1067px;
+            max-height: 100%;
+            aspect-ratio: 16 / 9;
+            background-color: #E2F0FF; 
+            background-size: contain; 
+            background-repeat: no-repeat;
+            background-position: center;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            border-radius: 0px;
+        }
+
+        /* 设置面板 */
+        .control-panel {
+            background: var(--panel-bg);
+            padding: 15px 20px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            z-index: 10;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            transition: all 0.3s;
+        }
+
+        body.layout-left .control-panel, body.layout-right .control-panel { width: 340px; height: 100vh; }
+        body.layout-top .control-panel, body.layout-bottom .control-panel { 
+            height: auto; max-height: 35vh; width: 100%; 
+            flex-direction: row; flex-wrap: wrap; align-items: flex-start;
+        }
+        body.layout-top .panel-section, body.layout-bottom .panel-section { flex: 1; min-width: 250px; }
+
+        .panel-section {
+            display: flex; flex-direction: column; gap: 10px;
+            background: #fafafa; padding: 12px; border-radius: 8px; border: 1px solid #eee;
+        }
+        .panel-section h3 {
+            font-size: 14px; color: #666; border-bottom: 1px solid #ddd; padding-bottom: 5px; margin-bottom: 5px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; font-weight: bold; color: #555; display: flex; justify-content: space-between; }
+
+        textarea { width: 100%; height: 80px; padding: 8px; border: 1px solid #ccc; border-radius: 4px; resize: vertical; font-size: 14px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        input[type="color"] { width: 100%; height: 30px; border: none; cursor: pointer; }
+        select, input[type="number"] { width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 4px; }
+        
+        .checkbox-group { display: flex; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+        .checkbox-group label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-weight: normal; }
+
+        button { padding: 8px 12px; background: #5A9BE0; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; transition: 0.2s; }
+        button:hover { background: #4A8BD0; }
+        button.primary { background: #2ECC71; font-weight: bold; font-size: 15px; width: 100%;}
+        button.primary:hover { background: #27AE60; }
+        button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8;}
+
+        .image-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
+        .image-thumb {
+            width: 50px; height: 50px; object-fit: cover; border-radius: 4px;
+            cursor: pointer; border: 2px solid transparent; transition: 0.2s;
+        }
+        .image-thumb:hover { border-color: #5A9BE0; }
+        .image-thumb.active { border-color: #2ECC71; }
+
+        /* 文字区域 */
+        #text-area { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .text-line { display: flex; justify-content: center; }
+        .grid-box {
+            position: relative; display: flex; justify-content: center; align-items: center;
+            background: transparent; 
+        }
+        .grid-box:last-child { margin-right: 0 !important; }
+        .text-line:last-child { margin-bottom: 0 !important; }
+
+        .grid-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+        
+        /* 文字绝对居中，确保各样式生效 */
+        .char-text {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            line-height: 1; z-index: 2; 
+        }
+    </style>
+</head>
+<body class="layout-bottom">
+
+    <div class="preview-area">
+        <div id="capture-container">
+            <div id="text-area"></div>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div class="panel-section">
+            <h3>1. 内容与背景</h3>
+            <div class="form-group">
+                <label>输入文字 <button id="to-fullwidth" class="small">转全角</button></label>
+                <textarea id="text-input">乘风破浪</textarea>
+            </div>
+            <div class="form-group">
+                <label>自定义上传背景 (防导出报错)</label>
+                <input type="file" id="bg-upload" accept="image/*" style="font-size:12px;">
+            </div>
+            <div id="bg-list-container" style="display:none;">
+                <label>预设背景图片</label>
+                <div class="image-list" id="image-list"></div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <h3>2. 字体与样式</h3>
+            <div class="form-group">
+                <label>字体</label>
+                <select id="font-family"></select>
+            </div>
+            <div class="checkbox-group">
+                <label><input type="checkbox" id="style-grid"> 田字格</label>
+                <label><input type="checkbox" id="style-italic"> 斜体</label>
+                <label><input type="checkbox" id="style-bold"> 加粗</label>
+                <label><input type="checkbox" id="style-strike"> 删除线</label>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                    <label>文字颜色</label>
+                    <input type="color" id="text-color">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>线条颜色</label>
+                    <input type="color" id="line-color">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <h3>3. 参数调节</h3>
+            <div class="form-group">
+                <label>字号大小: <span id="font-size-val"></span> px</label>
+                <input type="range" id="font-size" min="16" max="200">
+            </div>
+            <div class="form-group">
+                <label>文字大小比例 (占格子): <span id="text-ratio-val"></span></label>
+                <input type="range" id="text-ratio" min="0.4" max="1.0" step="0.05">
+            </div>
+            <div class="form-group">
+                <label>文字垂直微调: <span id="text-y-offset-val"></span> px</label>
+                <input type="range" id="text-y-offset" min="-30" max="30">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                    <label>列间距: <span id="col-gap-val"></span></label>
+                    <input type="range" id="col-gap" min="-20.0" max="20.0" step="0.1">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>行间距: <span id="line-gap-val"></span></label>
+                    <input type="range" id="line-gap" min="-20.0" max="20.0" step="0.1">
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="form-group" style="flex:1;">
+                    <label>外框线宽: <span id="border-width-val"></span></label>
+                    <input type="range" id="border-width" min="0" max="10">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>内虚线宽: <span id="dash-width-val"></span></label>
+                    <input type="range" id="dash-width" min="0" max="5" step="0.5">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label>虚线密度: <span id="dash-density-val"></span></label>
+                    <input type="range" id="dash-density" min="1" max="15">
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <h3>4. 导出设置</h3>
+            <div class="form-group">
+                <label>清晰度倍率:</label>
+                <input type="number" id="resolution" step="0.5" min="1" max="5">
+            </div>
+            <button id="export-btn" class="primary">📥 导出高清图片</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 🌟 动态加载在线字体 CSS (你提供的函数)
+        // ==========================================
+        async function loadFontCSS(main, fallback) {
+            try {
+                let response = await fetch(main, { method: "GET", mode: "cors" });
+                if (!response.ok) throw new Error('Main font load failed');
+                let cssText = await response.text();
+                const baseUrl = main.replace(/[^/]*\.css$/, ""); // 兼容替换最后一段
+
+                const style = document.createElement('style');
+                style.textContent = cssText.replace(
+                    /url\(['"]?\.\/([^'")]+)['"]?\)/g,
+                    `url("${baseUrl}$1")`
+                );
+                document.head.appendChild(style);
+                return true;
+            } catch (error) {
+                console.warn('主字体加载失败:', error);
+                if (fallback) {
+                    try {
+                        let response = await fetch(fallback, { method: "GET", mode: "cors" });
+                        if (!response.ok) throw new Error('Fallback font load failed');
+                        let cssText = await response.text();
+                        const baseUrl = fallback.replace(/[^/]*\.css$/, "");
+
+                        const style = document.createElement('style');
+                        style.textContent = cssText.replace(
+                            /url\(['"]?\.\/([^'")]+)['"]?\)/g,
+                            `url("${baseUrl}$1")`
+                        );
+                        document.head.appendChild(style);
+                        return true;
+                    } catch (fallbackError) {
+                        console.error('备用字体加载失败:', fallbackError);
+                        return false;
+                    }
+                }
+                return false;
+            }
+        }
+
+        // 获取DOM
+        const els = {
+            container: document.getElementById('capture-container'),
+            textArea: document.getElementById('text-area'),
+            textInput: document.getElementById('text-input'),
+            fontFamily: document.getElementById('font-family'),
+            styleGrid: document.getElementById('style-grid'),
+            styleItalic: document.getElementById('style-italic'),
+            styleBold: document.getElementById('style-bold'),
+            styleStrike: document.getElementById('style-strike'),
+            textColor: document.getElementById('text-color'),
+            lineColor: document.getElementById('line-color'),
+            fontSize: document.getElementById('font-size'),
+            textRatio: document.getElementById('text-ratio'),
+            colGap: document.getElementById('col-gap'),
+            lineGap: document.getElementById('line-gap'),
+            textYOffset: document.getElementById('text-y-offset'),
+            borderWidth: document.getElementById('border-width'),
+            dashWidth: document.getElementById('dash-width'),
+            dashDensity: document.getElementById('dash-density'),
+            resolution: document.getElementById('resolution'),
+            bgUpload: document.getElementById('bg-upload'),
+            bgListContainer: document.getElementById('bg-list-container'),
+            imageList: document.getElementById('image-list'),
+            exportBtn: document.getElementById('export-btn'),
+            toFullwidthBtn: document.getElementById('to-fullwidth')
+        };
+
+        // ==========================================
+        // 初始化流程 (包含字体加载)
+        // ==========================================
+        async function initApp() {
+            document.body.className = `layout-${CONFIG.panelPosition}`;
+
+            // 1. 加载在线字体
+            if (CONFIG.onlineFonts && CONFIG.onlineFonts.length > 0) {
+                for (let font of CONFIG.onlineFonts) {
+                    const success = await loadFontCSS(font.mainCss, font.fallbackCss);
+                    if (success) {
+                        // 加载成功，将字体名加入可选列表
+                        if (!CONFIG.availableFonts.includes(font.name)) {
+                            CONFIG.availableFonts.push(font.name);
+                        }
+                        console.log(`成功加载在线字体: ${font.name}`);
+                    }
+                }
+            }
+
+            // 2. 填充字体下拉框
+            CONFIG.availableFonts.forEach(font => {
+                const opt = document.createElement('option');
+                opt.value = font;
+                opt.innerText = font;
+                if (font === CONFIG.defaultFont) opt.selected = true;
+                els.fontFamily.appendChild(opt);
+            });
+
+            // 3. 绑定默认值
+            els.textColor.value = CONFIG.textColor;
+            els.lineColor.value = CONFIG.lineColor;
+            els.fontSize.value = CONFIG.fontSize;
+            els.textRatio.value = CONFIG.textRatio;
+            els.colGap.value = CONFIG.colGap;
+            els.lineGap.value = CONFIG.lineGap;
+            els.textYOffset.value = CONFIG.textYOffset;
+            els.borderWidth.value = CONFIG.borderWidth;
+            els.dashWidth.value = CONFIG.dashWidth;
+            els.dashDensity.value = CONFIG.dashDensity;
+            els.resolution.value = CONFIG.resolution;
+            
+            els.styleGrid.checked = CONFIG.defaultStyles.grid;
+            els.styleItalic.checked = CONFIG.defaultStyles.italic;
+            els.styleBold.checked = CONFIG.defaultStyles.bold;
+            els.styleStrike.checked = CONFIG.defaultStyles.strike;
+
+            // 4. 背景列表
+            if (CONFIG.bgImageFolder && CONFIG.bgImageFolder.length > 0) {
+                els.bgListContainer.style.display = 'block';
+                CONFIG.bgImageFolder.forEach(url => {
+                    const img = document.createElement('img');
+                    img.src = url;
+                    img.className = 'image-thumb';
+                    img.onclick = () => {
+                        document.querySelectorAll('.image-thumb').forEach(el => el.classList.remove('active'));
+                        img.classList.add('active');
+                        setBackground(url);
+                    };
+                    els.imageList.appendChild(img);
+                });
+            }
+
+            if (CONFIG.bgImageUrl) setBackground(CONFIG.bgImageUrl);
+
+            // 5. 首次渲染
+            render();
+        }
+
+        // ==========================================
+        // 核心功能
+        // ==========================================
+        function setBackground(url) {
+            const img = new Image();
+            img.onload = () => {
+                els.container.style.backgroundImage = `url(${url})`;
+                els.container.style.aspectRatio = `${img.width} / ${img.height}`;
+            };
+            img.onerror = () => {
+                els.container.style.backgroundImage = `url(${url})`;
+            };
+            img.src = url;
+        }
+
+        els.bgUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                setBackground(event.target.result);
+                document.querySelectorAll('.image-thumb').forEach(el => el.classList.remove('active'));
+            };
+            reader.readAsDataURL(file);
+        });
+
+        els.toFullwidthBtn.addEventListener('click', () => {
+            let text = els.textInput.value;
+            let result = "";
+            for (let i = 0; i < text.length; i++) {
+                let code = text.charCodeAt(i);
+                if (code === 32) result += String.fromCharCode(12288);
+                else if (code > 32 && code < 127) result += String.fromCharCode(code + 65248);
+                else result += text[i];
+            }
+            els.textInput.value = result;
+            render();
+        });
+
+        // ==========================================
+        // 渲染函数 (修复样式和字体拼接)
+        // ==========================================
+        function render() {
+            const text = els.textInput.value;
+            
+            const size = parseFloat(els.fontSize.value);
+            const ratio = parseFloat(els.textRatio.value);
+            const colGap = parseFloat(els.colGap.value);
+            const lineGap = parseFloat(els.lineGap.value);
+            const yOffset = parseFloat(els.textYOffset.value);
+            const borderWidth = parseFloat(els.borderWidth.value);
+            const dashWidth = parseFloat(els.dashWidth.value);
+            const dashDensity = parseFloat(els.dashDensity.value);
+            const textColor = els.textColor.value;
+            const lineColor = els.lineColor.value;
+            
+            // 获取当前选中的字体
+            const currentFont = els.fontFamily.value || CONFIG.defaultFont;
+            
+            const showGrid = els.styleGrid.checked;
+            const isItalic = els.styleItalic.checked;
+            const isBold = els.styleBold.checked;
+            const isStrike = els.styleStrike.checked;
+
+            document.getElementById('font-size-val').innerText = size;
+            document.getElementById('text-ratio-val').innerText = ratio.toFixed(2);
+            document.getElementById('col-gap-val').innerText = colGap;
+            document.getElementById('line-gap-val').innerText = lineGap;
+            document.getElementById('text-y-offset-val').innerText = yOffset;
+            document.getElementById('border-width-val').innerText = borderWidth;
+            document.getElementById('dash-width-val').innerText = dashWidth;
+            document.getElementById('dash-density-val').innerText = dashDensity;
+
+            const boxSize = Math.round(size / ratio);
+            const dashArray = `${dashDensity}, ${dashDensity}`;
+
+            // 🌟 修复 1：使用数组拼接确保每个样式都生效，字体加上单引号防空格报错
+            const styleStr = [
+                `font-size: ${size}px`,
+                `color: ${textColor}`,
+                `font-family: '${currentFont}', 'Microsoft YaHei', sans-serif`,
+                `font-weight: ${isBold ? 'bold' : 'normal'}`,
+                `font-style: ${isItalic ? 'italic' : 'normal'}`,
+                `text-decoration: ${isStrike ? 'line-through' : 'none'}`,
+                `transform: translateY(${yOffset}px)`
+            ].join('; ');
+
+            const lines = text.split('\n');
+            let html = '';
+
+            lines.forEach(line => {
+                html += `<div class="text-line" style="margin-bottom: ${lineGap}px;">`;
+                
+                if (line.length === 0) {
+                    html += `<div style="height: ${boxSize}px;"></div>`;
+                }
+
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    
+                    if (char === ' ' || char === '　') {
+                        html += `<div style="width: ${boxSize}px; height: ${boxSize}px; margin-right: ${colGap}px;"></div>`;
+                    } else {
+                        const borderCss = showGrid ? `${borderWidth}px solid ${lineColor}` : 'none';
+                        
+                        let svgHtml = '';
+                        if (showGrid && dashWidth > 0) {
+                            svgHtml = `
+                                <svg class="grid-svg" preserveAspectRatio="none" viewBox="0 0 100 100">
+                                    <line x1="0" y1="50" x2="100" y2="50" stroke="${lineColor}" stroke-width="${dashWidth}" stroke-dasharray="${dashArray}" vector-effect="non-scaling-stroke" />
+                                    <line x1="50" y1="0" x2="50" y2="100" stroke="${lineColor}" stroke-width="${dashWidth}" stroke-dasharray="${dashArray}" vector-effect="non-scaling-stroke" />
+                                    <line x1="0" y1="0" x2="100" y2="100" stroke="${lineColor}" stroke-width="${dashWidth}" stroke-dasharray="${dashArray}" vector-effect="non-scaling-stroke" />
+                                    <line x1="100" y1="0" x2="0" y2="100" stroke="${lineColor}" stroke-width="${dashWidth}" stroke-dasharray="${dashArray}" vector-effect="non-scaling-stroke" />
+                                </svg>
+                            `;
+                        }
+
+                        // 🌟 修复 2：样式通过 styleStr 传入，确保样式正常渲染
+                        html += `
+                            <div class="grid-box" style="
+                                width: ${boxSize}px; 
+                                height: ${boxSize}px; 
+                                border: ${borderCss};
+                                margin-right: ${colGap}px;
+                            ">
+                                ${svgHtml}
+                                <span class="char-text" style="${styleStr}">${char}</span>
+                            </div>
+                        `;
+                    }
+                }
+                html += '</div>';
+            });
+            
+            els.textArea.innerHTML = html;
+        }
+
+        // 监听控件
+        const inputs = [
+            els.textInput, els.fontFamily, els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
+            els.textColor, els.lineColor, els.fontSize, els.textRatio, els.colGap, els.lineGap, 
+            els.textYOffset, els.borderWidth, els.dashWidth, els.dashDensity
+        ];
+        inputs.forEach(el => el.addEventListener('input', render));
+
+        // 导出功能
+        els.exportBtn.addEventListener('click', () => {
+            if (!els.container.style.backgroundImage) {
+                alert('提示：你还没有加载背景图片，导出的图片将只有透明/默认底色！');
+            }
+
+            const originalText = els.exportBtn.innerText;
+            els.exportBtn.innerText = '导出中...';
+            els.exportBtn.disabled = true;
+
+            const scale = parseFloat(els.resolution.value) || 2;
+
+            html2canvas(els.container, {
+                scale: scale,          
+                useCORS: true,         
+                backgroundColor: null, 
+                logging: false
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `文字海报_${new Date().getTime()}.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                
+                els.exportBtn.innerText = originalText;
+                els.exportBtn.disabled = false;
+            }).catch(err => {
+                console.error('导出失败:', err);
+                alert('导出失败，请重试。');
+                els.exportBtn.innerText = originalText;
+                els.exportBtn.disabled = false;
+            });
+        });
+
+        // 启动应用
+        initApp();
+    </script>
+</body>
+</html>
