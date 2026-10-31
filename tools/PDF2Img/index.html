@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PDF 页面导出工具</title>
+<title>文档页面导出工具（PDF / DOCX / PPTX）</title>
 <style>
   :root {
     --bg: #f4f6fa; --panel: #fff; --border: #e3e8ef; --text: #1e293b;
@@ -25,32 +25,17 @@
     background: var(--panel); border: 1px solid var(--border);
     border-radius: var(--radius); padding: 16px; margin-bottom: 16px;
   }
-  .url-row { display: flex; gap: 10px; }
-  .url-row input {
-    flex: 1; padding: 10px 12px; border: 1px solid var(--border);
-    border-radius: 8px; font-size: 14px; outline: none;
-  }
-  .url-row input:focus { border-color: var(--accent); }
-
-  .loader-row {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    margin-top: 12px; font-size: 13px; color: var(--muted);
-  }
-  .loader-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-  .loader-row select {
-    padding: 6px 8px; border: 1px solid var(--border);
-    border-radius: 6px; font-size: 13px; color: var(--text);
-  }
 
   .drop-zone {
-    margin-top: 14px; border: 2px dashed #cbd5e1; border-radius: var(--radius);
-    padding: 26px 16px; text-align: center; color: var(--muted); cursor: pointer;
+    border: 2px dashed #cbd5e1; border-radius: var(--radius);
+    padding: 34px 16px; text-align: center; color: var(--muted); cursor: pointer;
     transition: all .15s; background: #fafbfd;
   }
   .drop-zone:hover { border-color: var(--accent); background: #f0f6ff; }
   .drop-zone.dragover { border-color: var(--accent); background: #e6f0ff; color: var(--accent); }
-  .drop-zone .drop-icon { font-size: 28px; margin-bottom: 6px; }
+  .drop-zone .drop-icon { font-size: 32px; margin-bottom: 8px; }
   .drop-zone .link { color: var(--accent); text-decoration: underline; }
+  .drop-zone .hint { font-size: 12px; margin-top: 8px; color: #94a3b8; }
 
   .btn {
     padding: 9px 16px; border: 1px solid var(--border); background: #fff;
@@ -96,17 +81,36 @@
     display: flex; flex-direction: column; gap: 8px;
   }
   .page-preview {
-    background: #eef2f7; border-radius: 6px; min-height: 150px;
+    background: #eef2f7; border-radius: 6px; min-height: 140px;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden; color: #94a3b8; font-size: 13px;
   }
   .page-preview canvas { max-width: 100%; height: auto; display: block; }
+  .page-preview svg { max-width: 100%; height: auto; display: block; }
   .page-meta {
     display: flex; justify-content: space-between; align-items: center;
     font-size: 12px; color: var(--muted); gap: 8px;
   }
   .page-meta .page-label { color: var(--text); font-weight: 600; font-size: 13px; }
-  .page-dims { font-variant-numeric: tabular-nums; }
+
+  .docx-notice {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 30px 16px;
+    color: var(--muted);
+    background: #f8fafc;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+  }
+
+  /* DOCX 渲染容器（离屏） */
+  #docx-render {
+    position: absolute;
+    left: -99999px;
+    top: 0;
+    width: 1000px;
+    background: #fff;
+  }
 
   .tip {
     font-size: 12px; color: var(--muted); line-height: 1.7;
@@ -119,38 +123,20 @@
 <body>
 <div class="wrap">
   <header>
-    <h1>PDF 页面导出工具</h1>
-    <p class="sub">在线链接 / 本地文件 · 单页导出 · 全部导出 · 拼接长图 · 分辨率可调</p>
+    <h1>文档页面导出工具</h1>
+    <p class="sub">支持 PDF / DOCX / PPTX · 单页导出 · 全部导出 · 拼接长图 · 分辨率可调</p>
   </header>
 
   <section class="panel">
-    <div class="url-row">
-      <input id="urlInput" type="text" placeholder="粘贴在线 PDF 链接，如 https://example.com/file.pdf">
-      <button id="loadUrlBtn" class="btn primary" type="button">打开链接</button>
-    </div>
-
-    <div class="loader-row">
-      <label>
-        <input id="useProxy" type="checkbox" checked>
-        加载失败时自动尝试 CORS 代理
-      </label>
-      <label>
-        代理源：
-        <select id="proxySelect">
-          <option value="auto">自动依次尝试</option>
-          <option value="corsproxy">corsproxy.io</option>
-          <option value="allorigins">allorigins.win</option>
-          <option value="codetabs">codetabs.com</option>
-        </select>
-      </label>
-    </div>
-
     <div id="dropZone" class="drop-zone">
       <div class="drop-inner">
         <div class="drop-icon">📄</div>
-        <div>拖拽 PDF 文件到此处，或 <span class="link">点击选择文件</span></div>
+        <div>拖拽文件到此处，或 <span class="link">点击选择文件</span></div>
+        <div class="hint">支持 PDF、DOCX、PPTX（旧版 .doc / .ppt 暂不支持纯前端解析）</div>
       </div>
-      <input type="file" id="fileInput" accept="application/pdf,.pdf" hidden>
+      <input type="file" id="fileInput"
+             accept=".pdf,.docx,.pptx,.doc,.ppt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+             hidden>
     </div>
   </section>
 
@@ -189,28 +175,31 @@
   <main id="pageList" class="page-list"></main>
 
   <div class="tip">
-    <b>关于跨域：</b>若目标服务器未开启 CORS（如财新 download.caixin.com），直连必然失败，本工具会自动切换到代理中转。<br>
-    <b>代理可能不稳定：</b>公开代理随时可能限流/失效；如遇 404 或超时，请改用 <b>先下载 PDF 到本地 → 拖入上传</b>，这是最可靠的方式。<br>
-    <b>拼接长图：</b>受浏览器画布尺寸限制（单边 ≤ 32767、面积 ≤ 2.68 亿像素），超限会提示并自动降低分辨率。
+    <b>格式说明：</b><br>
+    · PDF / PPTX 支持逐页导出与拼接长图。<br>
+    · DOCX 由 docx-preview 渲染为 HTML 后整体截图，<b>不支持精确逐页分割</b>，请使用「导出长图」获取完整内容。<br>
+    · 旧版 <b>.doc / .ppt</b> 为二进制 OLE 格式，纯前端无可靠解析方案，请另存为 .docx / .pptx 后重试。<br>
+    · 拼接长图受浏览器画布限制（单边 ≤ 32767、面积 ≤ 2.68 亿像素），超限会提示并自动降低分辨率。
   </div>
 </div>
 
+<!-- DOCX 离屏渲染容器 -->
+<div id="docx-render" aria-hidden="true"></div>
+
+<!-- 依赖库 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.5/dist/docx-preview.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
 <script>
 (function () {
   'use strict';
-
-  if (typeof pdfjsLib === 'undefined') {
-    document.body.insertAdjacentHTML('afterbegin',
-      '<div style="padding:16px;background:#fee;color:#900;">PDF.js 加载失败，请刷新重试。</div>');
-    return;
-  }
 
   /* ======================== 常量 ======================== */
   const CDN_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
   pdfjsLib.GlobalWorkerOptions.workerSrc = CDN_BASE + 'pdf.worker.min.js';
 
-  const BASE_PARAMS = {
+  const PDF_PARAMS = {
     cMapUrl: CDN_BASE + 'cmaps/',
     cMapPacked: true,
     standardFontDataUrl: CDN_BASE + 'standard_fonts/'
@@ -220,20 +209,9 @@
   const MAX_CANVAS_SIDE = 32767;
   const MAX_CANVAS_AREA = 268435456;
 
-  // 代理表：通过它们把 PDF 下载为 ArrayBuffer
-  const PROXIES = {
-    corsproxy:  function (u) { return 'https://corsproxy.io/?url=' + encodeURIComponent(u); },
-    allorigins: function (u) { return 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u); },
-    codetabs:   function (u) { return 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u); }
-  };
-
   /* ======================== 元素 ======================== */
   const $ = function (id) { return document.getElementById(id); };
   const els = {
-    urlInput:      $('urlInput'),
-    loadUrlBtn:    $('loadUrlBtn'),
-    useProxy:      $('useProxy'),
-    proxySelect:   $('proxySelect'),
     dropZone:      $('dropZone'),
     fileInput:     $('fileInput'),
     controls:      $('controls'),
@@ -246,35 +224,51 @@
     exportAllBtn:  $('exportAllBtn'),
     exportLongBtn: $('exportLongBtn'),
     status:        $('status'),
-    pageList:      $('pageList')
+    pageList:      $('pageList'),
+    docxRender:    $('docx-render')
   };
 
   /* ======================== 状态 ======================== */
-  let pdfDoc = null;
+  let currentType = null;        // 'pdf' | 'docx' | 'pptx'
+  let pdfDoc = null;             // PDF.js 文档对象
+  let docxContainer = null;      // DOCX 渲染容器
+  let pptxSlides = null;         // PPTX 幻灯片数据 [{ svg, width, height }]
   let fileName = 'document';
   let busy = false;
   let previewScale = 0.3;
-  const pageBaseSizes = new Map();
+  const pageBaseSizes = new Map(); // PDF 页面原始尺寸缓存
 
-  /* ======================== 工具函数 ======================== */
+  /* ======================== 通用工具 ======================== */
   function setStatus(msg, type) {
     els.status.textContent = msg || '';
     els.status.className = 'status' + (type ? ' ' + type : '');
   }
+
   function sanitizeName(name) {
     return String(name || 'document')
-      .replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]/g, '_').trim() || 'document';
+      .replace(/\.[^.]+$/, '')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .trim() || 'document';
   }
+
   function getScale() {
     const v = parseFloat(els.scaleInput.value);
     return (isFinite(v) && v > 0) ? v : 2;
   }
+
   function getFormat() {
     const type = els.formatSelect.value;
-    return { type: type, ext: type === 'image/png' ? 'png' : 'jpg',
-             quality: parseFloat(els.qualityInput.value) };
+    return {
+      type: type,
+      ext: type === 'image/png' ? 'png' : 'jpg',
+      quality: parseFloat(els.qualityInput.value)
+    };
   }
-  function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+  function sleep(ms) {
+    return new Promise(function (r) { setTimeout(r, ms); });
+  }
+
   function canvasToBlob(canvas, type, quality) {
     return new Promise(function (resolve, reject) {
       canvas.toBlob(function (blob) {
@@ -282,166 +276,114 @@
       }, type, quality);
     });
   }
+
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = filename; a.style.display = 'none';
-    document.body.appendChild(a); a.click(); a.remove();
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 15000);
   }
+
   function setBusy(v) {
     busy = v;
-    [els.exportAllBtn, els.exportLongBtn, els.loadUrlBtn].forEach(function (b) { b.disabled = v; });
-    els.urlInput.disabled = v;
+    [els.exportAllBtn, els.exportLongBtn].forEach(function (b) { b.disabled = v; });
     els.fileInput.disabled = v;
-    Array.prototype.forEach.call(document.querySelectorAll('.export-one'),
-      function (b) { b.disabled = v; });
+    Array.prototype.forEach.call(
+      document.querySelectorAll('.export-one'),
+      function (b) { b.disabled = v; }
+    );
   }
 
-  /* ======================== 下载 PDF 为 ArrayBuffer ======================== */
-  function isValidPdf(buf) {
-    if (!buf || buf.byteLength < 5) return false;
-    const head = new Uint8Array(buf, 0, 5);
-    const sig = String.fromCharCode.apply(null, head);
-    return sig === '%PDF-';
-  }
-
-  async function tryFetch(url, signal) {
-    const resp = await fetch(url, { mode: 'cors', signal: signal });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    return await resp.arrayBuffer();
-  }
-
-  async function fetchPdfBuffer(url) {
-    const errors = [];
-    const mode = els.proxySelect.value;
-    const useProxy = els.useProxy.checked;
-
-    // 1) 直连
-    if (!useProxy) {
-      setStatus('正在直连下载 PDF …');
-      try {
-        const buf = await tryFetch(url);
-        if (!isValidPdf(buf)) throw new Error('返回内容不是 PDF');
-        return { buffer: buf, via: '直连' };
-      } catch (e) {
-        errors.push('直连: ' + e.message);
-        throw new Error('直连失败（跨域）。请勾选「自动尝试 CORS 代理」。详情：' + errors.join('; '));
-      }
+  function computeShrink(w, h) {
+    let s = 1;
+    const maxSide = Math.max(w, h);
+    if (maxSide > MAX_CANVAS_SIDE) s = Math.min(s, MAX_CANVAS_SIDE / maxSide);
+    if (w * h * s * s > MAX_CANVAS_AREA) {
+      s = Math.min(s, Math.sqrt(MAX_CANVAS_AREA / (w * h)));
     }
-
-    // 2) 直连先试一次（若是同源或对方已开 CORS，直接成功最快）
-    setStatus('正在直连下载 PDF …');
-    try {
-      const buf = await tryFetch(url);
-      if (!isValidPdf(buf)) throw new Error('返回内容不是 PDF');
-      return { buffer: buf, via: '直连' };
-    } catch (e) {
-      errors.push('直连: ' + e.message);
-    }
-
-    // 3) 代理
-    const order = mode === 'auto' ? ['corsproxy', 'allorigins', 'codetabs'] : [mode];
-
-    for (let i = 0; i < order.length; i++) {
-      const key = order[i];
-      const build = PROXIES[key];
-      if (!build) continue;
-      const target = build(url);
-      setStatus('通过代理 ' + key + ' 下载中…（' + (i + 1) + '/' + order.length + '）', 'warn');
-      try {
-        const buf = await tryFetch(target);
-        if (!isValidPdf(buf)) throw new Error('返回内容不是 PDF（代理可能返回了错误页）');
-        return { buffer: buf, via: '代理 ' + key };
-      } catch (e) {
-        errors.push(key + ': ' + e.message);
-      }
-    }
-
-    throw new Error('全部加载方式均失败：' + errors.join(' | '));
+    return s;
   }
 
-  /* ======================== PDF 加载 ======================== */
-  async function resetPdf() {
-    if (pdfDoc) { try { await pdfDoc.destroy(); } catch (e) {} pdfDoc = null; }
+  /* ======================== 文件入口 ======================== */
+  function handleFile(file) {
+    if (!file || busy) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (ext === 'pdf') {
+      loadPdf(file);
+    } else if (ext === 'docx') {
+      loadDocx(file);
+    } else if (ext === 'pptx') {
+      loadPptx(file);
+    } else if (ext === 'doc' || ext === 'ppt') {
+      setStatus(
+        '旧版 .' + ext + ' 为二进制 OLE 格式，纯前端无可靠解析方案。请用 Office / WPS 另存为 .' +
+        ext + 'x 后重新上传。',
+        'error'
+      );
+    } else {
+      setStatus('不支持的文件格式：' + ext, 'error');
+    }
+  }
+
+  /* ======================== 重置 ======================== */
+  async function resetAll() {
+    if (pdfDoc) {
+      try { await pdfDoc.destroy(); } catch (e) { /* ignore */ }
+      pdfDoc = null;
+    }
+    currentType = null;
+    docxContainer = null;
+    pptxSlides = null;
     pageBaseSizes.clear();
     els.pageList.innerHTML = '';
     els.controls.hidden = true;
+    els.docxRender.innerHTML = '';
   }
 
-  async function openPdfFromBuffer(buffer, name) {
-    await resetPdf();
-    const params = Object.assign({ data: buffer }, BASE_PARAMS);
-    const doc = await pdfjsLib.getDocument(params).promise;
-    pdfDoc = doc;
-    fileName = sanitizeName(name);
-    await buildPageList();
-    els.controls.hidden = false;
-    updateQualityField();
-    return doc;
-  }
-
-  async function loadFromUrl(url) {
-    if (busy) return;
-    url = (url || '').trim();
-    if (!url) { setStatus('请先输入 PDF 链接', 'error'); return; }
-
-    // 从 URL 推断文件名
-    let name = 'document';
-    try {
-      const u = new URL(url, location.href);
-      const seg = u.pathname.split('/').filter(Boolean).pop();
-      if (seg) name = decodeURIComponent(seg);
-    } catch (e) {}
-
+  /* ======================== PDF ======================== */
+  async function loadPdf(file) {
+    await resetAll();
     setBusy(true);
+    setStatus('正在解析 PDF …');
+
     try {
-      const result = await fetchPdfBuffer(url);
-      setStatus('下载完成（' + (result.buffer.byteLength / 1024 / 1024).toFixed(2) + ' MB，' + result.via + '），正在解析…');
-      await openPdfFromBuffer(result.buffer, name);
-      setStatus('已加载：共 ' + pdfDoc.numPages + ' 页（来源：' + result.via + '）', 'ok');
+      const buffer = await file.arrayBuffer();
+      pdfDoc = await pdfjsLib.getDocument(
+        Object.assign({ data: buffer }, PDF_PARAMS)
+      ).promise;
+      currentType = 'pdf';
+      fileName = sanitizeName(file.name);
+
+      await buildPdfPageList();
+      els.controls.hidden = false;
+      els.exportAllBtn.hidden = false;
+      els.exportLongBtn.hidden = false;
+      updateQualityField();
+      setStatus('PDF 已加载：共 ' + pdfDoc.numPages + ' 页', 'ok');
     } catch (err) {
       console.error(err);
-      setStatus(err.message, 'error');
+      setStatus('PDF 解析失败：' + err.message, 'error');
     } finally {
       setBusy(false);
     }
   }
 
-  function loadFromFile(file) {
-    if (!file) return;
-    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
-      setStatus('请选择 PDF 文件', 'error'); return;
-    }
-    const reader = new FileReader();
-    reader.onload = async function () {
-      if (busy) return;
-      setBusy(true);
-      try {
-        await openPdfFromBuffer(reader.result, file.name);
-        setStatus('已加载：共 ' + pdfDoc.numPages + ' 页（本地文件）', 'ok');
-      } catch (err) {
-        console.error(err);
-        setStatus('解析失败：' + err.message, 'error');
-      } finally {
-        setBusy(false);
-      }
-    };
-    reader.onerror = function () { setStatus('读取文件失败', 'error'); };
-    reader.readAsArrayBuffer(file);
-  }
-
-  /* ======================== 页面列表 ======================== */
   const previewObserver = new IntersectionObserver(function (entries) {
     entries.forEach(function (entry) {
       if (entry.isIntersecting) {
         previewObserver.unobserve(entry.target);
-        renderPreview(entry.target);
+        renderPdfPreview(entry.target);
       }
     });
   }, { rootMargin: '300px 0px' });
 
-  async function buildPageList() {
+  async function buildPdfPageList() {
     els.pageList.innerHTML = '';
     pageBaseSizes.clear();
 
@@ -463,22 +405,28 @@
           '<span class="page-dims"></span>' +
         '</div>' +
         '<button type="button" class="btn small export-one">导出此页</button>';
-      card.querySelector('.export-one').addEventListener('click', function () { exportOnePage(i); });
+      card.querySelector('.export-one').addEventListener('click', function () {
+        exportOnePage(i);
+      });
       frag.appendChild(card);
     }
     els.pageList.appendChild(frag);
 
-    Array.prototype.forEach.call(els.pageList.querySelectorAll('.page-card'),
-      function (c) { previewObserver.observe(c); });
+    Array.prototype.forEach.call(
+      els.pageList.querySelectorAll('.page-card'),
+      function (c) { previewObserver.observe(c); }
+    );
   }
 
-  async function renderPreview(card) {
+  async function renderPdfPreview(card) {
     if (!pdfDoc || card.dataset.done === '1') return;
     card.dataset.done = '1';
     const pageNum = Number(card.dataset.page);
+
     try {
       const page = await pdfDoc.getPage(pageNum);
       if (!pdfDoc) return;
+
       const baseVp = page.getViewport({ scale: 1 });
       pageBaseSizes.set(pageNum, { width: baseVp.width, height: baseVp.height });
 
@@ -486,22 +434,28 @@
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.floor(vp.width));
       canvas.height = Math.max(1, Math.floor(vp.height));
+
       const ctx = canvas.getContext('2d', { alpha: false });
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      await page.render({ canvasContext: ctx, viewport: vp, background: '#ffffff' }).promise;
+
+      await page.render({
+        canvasContext: ctx,
+        viewport: vp,
+        background: '#ffffff'
+      }).promise;
 
       const holder = card.querySelector('.page-preview');
       holder.innerHTML = '';
       holder.appendChild(canvas);
-      updateCardDims(card);
+      updatePdfCardDims(card);
     } catch (e) {
-      console.error('预览渲染失败', pageNum, e);
+      console.error('PDF 预览渲染失败', pageNum, e);
       card.dataset.done = '';
     }
   }
 
-  function updateCardDims(card) {
+  function updatePdfCardDims(card) {
     const n = Number(card.dataset.page);
     const base = pageBaseSizes.get(n);
     if (!base) return;
@@ -509,33 +463,282 @@
     card.querySelector('.page-dims').textContent =
       Math.round(base.width * s) + ' × ' + Math.round(base.height * s);
   }
-  function updateAllDims() {
-    Array.prototype.forEach.call(els.pageList.querySelectorAll('.page-card'), updateCardDims);
+
+  function updateAllPdfDims() {
+    Array.prototype.forEach.call(
+      els.pageList.querySelectorAll('.page-card'),
+      updatePdfCardDims
+    );
   }
 
-  /* ======================== 渲染 ======================== */
-  async function renderPageToCanvas(pageNum, scale) {
+  async function renderPdfPageToCanvas(pageNum, scale) {
     const page = await pdfDoc.getPage(pageNum);
     const viewport = page.getViewport({ scale });
+
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.floor(viewport.width));
     canvas.height = Math.max(1, Math.floor(viewport.height));
+
     const ctx = canvas.getContext('2d', { alpha: false });
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    await page.render({ canvasContext: ctx, viewport: viewport, background: '#ffffff' }).promise;
+
+    await page.render({
+      canvasContext: ctx,
+      viewport: viewport,
+      background: '#ffffff'
+    }).promise;
+
     return canvas;
+  }
+
+  /* ======================== DOCX ======================== */
+  async function loadDocx(file) {
+    await resetAll();
+    setBusy(true);
+    setStatus('正在渲染 DOCX …');
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const container = els.docxRender;
+      container.innerHTML = '';
+
+      await docx.renderAsync(buffer, container, null, {
+        breakPages: true,
+        inWrapper: true,
+        ignoreWidth: false,
+        ignoreHeight: false,
+        renderHeaders: true,
+        renderFooters: true,
+        renderFootnotes: true,
+        renderEndnotes: true
+      });
+
+      currentType = 'docx';
+      docxContainer = container;
+      fileName = sanitizeName(file.name);
+
+      els.pageList.innerHTML =
+        '<div class="docx-notice">' +
+          'DOCX 已渲染为连续 HTML 内容。<br>' +
+          '受浏览器分页限制，无法精确拆分为独立页面图片，请使用「导出拼接长图」获取完整文档。' +
+        '</div>';
+
+      els.controls.hidden = false;
+      els.exportAllBtn.hidden = true;   // DOCX 不提供逐页批量导出
+      els.exportLongBtn.hidden = false;
+      updateQualityField();
+      setStatus('DOCX 渲染完成，可导出长图', 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus('DOCX 渲染失败：' + err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function captureDocxLongImage() {
+    if (!docxContainer) throw new Error('DOCX 内容未就绪');
+
+    const scale = getScale();
+
+    // 临时将容器移入视口以保证 html2canvas 正确捕获
+    const originalLeft = docxContainer.style.left;
+    docxContainer.style.left = '0';
+    docxContainer.style.position = 'relative';
+    docxContainer.style.zIndex = '99999';
+
+    try {
+      const canvas = await html2canvas(docxContainer, {
+        scale: scale,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: docxContainer.scrollWidth,
+        windowHeight: docxContainer.scrollHeight
+      });
+      return canvas;
+    } finally {
+      docxContainer.style.left = originalLeft;
+      docxContainer.style.position = 'absolute';
+      docxContainer.style.zIndex = '';
+    }
+  }
+
+  /* ======================== PPTX ======================== */
+  async function loadPptx(file) {
+    await resetAll();
+    setBusy(true);
+    setStatus('正在解析 PPTX …');
+
+    try {
+      const buffer = await file.arrayBuffer();
+
+      // 动态导入 pptx-glimpse（ESM）
+      const mod = await import('https://cdn.jsdelivr.net/npm/pptx-glimpse@5.3.1/+esm');
+      const convertPptxToSvg = mod.convertPptxToSvg;
+
+      if (typeof convertPptxToSvg !== 'function') {
+        throw new Error('pptx-glimpse 未正确加载 convertPptxToSvg');
+      }
+
+      const result = await convertPptxToSvg(buffer);
+
+      if (!result || !Array.isArray(result.slides)) {
+        throw new Error('PPTX 解析结果为空');
+      }
+
+      currentType = 'pptx';
+      pptxSlides = result.slides.map(function (slide, idx) {
+        // slide.svg 是 SVG 字符串；提取尺寸
+        const dims = extractSvgDimensions(slide.svg);
+        return {
+          svg: slide.svg,
+          width: dims.width,
+          height: dims.height,
+          index: idx + 1
+        };
+      });
+
+      fileName = sanitizeName(file.name);
+      buildPptxPageList();
+
+      els.controls.hidden = false;
+      els.exportAllBtn.hidden = false;
+      els.exportLongBtn.hidden = false;
+      updateQualityField();
+      setStatus('PPTX 已加载：共 ' + pptxSlides.length + ' 张幻灯片', 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus('PPTX 解析失败：' + err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function extractSvgDimensions(svg) {
+    // 尝试从 width/height 或 viewBox 中读取
+    let width = 960, height = 540;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svg, 'image/svg+xml');
+      const svgEl = doc.documentElement;
+
+      const wAttr = svgEl.getAttribute('width');
+      const hAttr = svgEl.getAttribute('height');
+      if (wAttr && hAttr) {
+        width = parseFloat(wAttr) || width;
+        height = parseFloat(hAttr) || height;
+      } else {
+        const vb = svgEl.getAttribute('viewBox');
+        if (vb) {
+          const parts = vb.split(/[\s,]+/).map(parseFloat);
+          if (parts.length === 4) {
+            width = parts[2] || width;
+            height = parts[3] || height;
+          }
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return { width: width, height: height };
+  }
+
+  function buildPptxPageList() {
+    els.pageList.innerHTML = '';
+    const frag = document.createDocumentFragment();
+
+    pptxSlides.forEach(function (slide) {
+      const card = document.createElement('div');
+      card.className = 'page-card';
+      card.dataset.page = String(slide.index);
+
+      const previewDiv = document.createElement('div');
+      previewDiv.className = 'page-preview';
+      // 直接嵌入 SVG 作为预览
+      previewDiv.innerHTML = slide.svg;
+
+      const metaDiv = document.createElement('div');
+      metaDiv.className = 'page-meta';
+      metaDiv.innerHTML =
+        '<span class="page-label">第 ' + slide.index + ' 页</span>' +
+        '<span>' + Math.round(slide.width) + ' × ' + Math.round(slide.height) + '</span>';
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn small export-one';
+      btn.textContent = '导出此页';
+      btn.addEventListener('click', function () {
+        exportPptxSlide(slide);
+      });
+
+      card.appendChild(previewDiv);
+      card.appendChild(metaDiv);
+      card.appendChild(btn);
+      frag.appendChild(card);
+    });
+
+    els.pageList.appendChild(frag);
+  }
+
+  function svgToCanvas(svg, scale) {
+    return new Promise(function (resolve, reject) {
+      const dims = extractSvgDimensions(svg);
+      const img = new Image();
+
+      // 确保 SVG 有明确尺寸
+      let svgData = svg;
+      if (!/width=/.test(svgData.slice(0, 500))) {
+        svgData = svgData.replace('<svg', '<svg width="' + dims.width + '" height="' + dims.height + '"');
+      }
+
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+
+      img.onload = function () {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.max(1, Math.round(dims.width * scale));
+          canvas.height = Math.max(1, Math.round(dims.height * scale));
+
+          const ctx = canvas.getContext('2d', { alpha: false });
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          URL.revokeObjectURL(url);
+          resolve(canvas);
+        } catch (e) {
+          URL.revokeObjectURL(url);
+          reject(e);
+        }
+      };
+
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('SVG 转换为图片失败'));
+      };
+
+      img.src = url;
+    });
   }
 
   /* ======================== 导出单页 ======================== */
   async function exportOnePage(pageNum) {
-    if (busy || !pdfDoc) return;
+    if (busy) return;
+    if (currentType === 'pptx') {
+      const slide = pptxSlides[pageNum - 1];
+      if (slide) exportPptxSlide(slide);
+      return;
+    }
+    if (currentType !== 'pdf' || !pdfDoc) return;
+
     setBusy(true);
     setStatus('正在导出第 ' + pageNum + ' 页 …');
     try {
       const scale = getScale();
       const fmt = getFormat();
-      const canvas = await renderPageToCanvas(pageNum, scale);
+      const canvas = await renderPdfPageToCanvas(pageNum, scale);
       const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
       const pad = String(pdfDoc.numPages).length;
       downloadBlob(blob, fileName + '_p' + String(pageNum).padStart(pad, '0') + '.' + fmt.ext);
@@ -547,22 +750,56 @@
     } finally { setBusy(false); }
   }
 
+  async function exportPptxSlide(slide) {
+    if (busy) return;
+    setBusy(true);
+    setStatus('正在导出第 ' + slide.index + ' 张幻灯片 …');
+    try {
+      const scale = getScale();
+      const fmt = getFormat();
+      const canvas = await svgToCanvas(slide.svg, scale);
+      const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+      const pad = String(pptxSlides.length).length;
+      downloadBlob(blob, fileName + '_s' + String(slide.index).padStart(pad, '0') + '.' + fmt.ext);
+      setStatus('第 ' + slide.index + ' 张已导出（' + canvas.width + ' × ' + canvas.height + '）', 'ok');
+      canvas.width = 0; canvas.height = 0;
+    } catch (err) {
+      console.error(err);
+      setStatus('导出失败：' + err.message, 'error');
+    } finally { setBusy(false); }
+  }
+
   /* ======================== 导出全部 ======================== */
   async function exportAllPages() {
-    if (busy || !pdfDoc) return;
+    if (busy) return;
+
+    if (currentType === 'docx') {
+      // DOCX 不支持逐页批量，引导使用长图
+      await exportLongImage();
+      return;
+    }
+
+    if (currentType === 'pptx') {
+      await exportAllPptx();
+      return;
+    }
+
+    if (currentType !== 'pdf' || !pdfDoc) return;
     setBusy(true);
+
     const scale = getScale();
     const fmt = getFormat();
     const total = pdfDoc.numPages;
     const pad = String(total).length;
     const mode = els.downloadMode.value;
+
     try {
       if (mode === 'zip') {
         await ensureJSZip();
         const zip = new JSZip();
         for (let i = 1; i <= total; i++) {
           setStatus('正在渲染 ' + i + '/' + total + ' …');
-          const canvas = await renderPageToCanvas(i, scale);
+          const canvas = await renderPdfPageToCanvas(i, scale);
           const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
           zip.file(fileName + '_p' + String(i).padStart(pad, '0') + '.' + fmt.ext, blob);
           canvas.width = 0; canvas.height = 0;
@@ -576,7 +813,7 @@
       } else {
         for (let i = 1; i <= total; i++) {
           setStatus('正在导出 ' + i + '/' + total + ' …');
-          const canvas = await renderPageToCanvas(i, scale);
+          const canvas = await renderPdfPageToCanvas(i, scale);
           const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
           downloadBlob(blob, fileName + '_p' + String(i).padStart(pad, '0') + '.' + fmt.ext);
           canvas.width = 0; canvas.height = 0;
@@ -590,37 +827,73 @@
     } finally { setBusy(false); }
   }
 
-  /* ======================== 拼接长图 ======================== */
-  function computeShrink(w, h) {
-    let s = 1;
-    const maxSide = Math.max(w, h);
-    if (maxSide > MAX_CANVAS_SIDE) s = Math.min(s, MAX_CANVAS_SIDE / maxSide);
-    if (w * h * s * s > MAX_CANVAS_AREA) s = Math.min(s, Math.sqrt(MAX_CANVAS_AREA / (w * h)));
-    return s;
+  async function exportAllPptx() {
+    if (!pptxSlides || !pptxSlides.length) return;
+    setBusy(true);
+
+    const scale = getScale();
+    const fmt = getFormat();
+    const total = pptxSlides.length;
+    const pad = String(total).length;
+    const mode = els.downloadMode.value;
+
+    try {
+      if (mode === 'zip') {
+        await ensureJSZip();
+        const zip = new JSZip();
+        for (let i = 0; i < total; i++) {
+          setStatus('正在渲染 ' + (i + 1) + '/' + total + ' …');
+          const slide = pptxSlides[i];
+          const canvas = await svgToCanvas(slide.svg, scale);
+          const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+          zip.file(fileName + '_s' + String(slide.index).padStart(pad, '0') + '.' + fmt.ext, blob);
+          canvas.width = 0; canvas.height = 0;
+          await sleep(0);
+        }
+        setStatus('正在打包 ZIP …');
+        const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' },
+          function (meta) { setStatus('正在打包 ZIP … ' + meta.percent.toFixed(0) + '%'); });
+        downloadBlob(zipBlob, fileName + '_slides.zip');
+        setStatus('全部 ' + total + ' 张幻灯片已打包完成', 'ok');
+      } else {
+        for (let i = 0; i < total; i++) {
+          setStatus('正在导出 ' + (i + 1) + '/' + total + ' …');
+          const slide = pptxSlides[i];
+          const canvas = await svgToCanvas(slide.svg, scale);
+          const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+          downloadBlob(blob, fileName + '_s' + String(slide.index).padStart(pad, '0') + '.' + fmt.ext);
+          canvas.width = 0; canvas.height = 0;
+          await sleep(400);
+        }
+        setStatus('全部 ' + total + ' 张幻灯片已导出', 'ok');
+      }
+    } catch (err) {
+      console.error(err);
+      setStatus('导出失败：' + err.message, 'error');
+    } finally { setBusy(false); }
   }
 
-  async function computeLongLayout(scale) {
-    const metas = [];
-    let maxWidth = 0, totalHeight = 0;
-    for (let i = 1; i <= pdfDoc.numPages; i++) {
-      const page = await pdfDoc.getPage(i);
-      const vp = page.getViewport({ scale });
-      const w = Math.max(1, Math.floor(vp.width));
-      const h = Math.max(1, Math.floor(vp.height));
-      metas.push({ page: page, w: w, h: h });
-      maxWidth = Math.max(maxWidth, w);
-      totalHeight += h;
-      if (i % 10 === 0) setStatus('正在计算尺寸 ' + i + '/' + pdfDoc.numPages + ' …');
-    }
-    return { metas: metas, width: maxWidth, height: totalHeight };
-  }
-
+  /* ======================== 导出长图 ======================== */
   async function exportLongImage() {
-    if (busy || !pdfDoc) return;
+    if (busy) return;
+
+    if (currentType === 'docx') {
+      await exportDocxLong();
+      return;
+    }
+    if (currentType === 'pptx') {
+      await exportPptxLong();
+      return;
+    }
+    if (currentType !== 'pdf' || !pdfDoc) return;
+    await exportPdfLong();
+  }
+
+  async function exportPdfLong() {
     setBusy(true);
     try {
       let scale = getScale();
-      let layout = await computeLongLayout(scale);
+      let layout = await computePdfLongLayout(scale);
       const shrink = computeShrink(layout.width, layout.height);
       if (shrink < 1) {
         const nw = Math.round(layout.width * shrink), nh = Math.round(layout.height * shrink);
@@ -630,7 +903,7 @@
           '若仍不理想，请降低「分辨率倍率」后重试。\n\n是否继续？');
         if (!ok) { setStatus('已取消'); return; }
         scale = scale * shrink;
-        layout = await computeLongLayout(scale);
+        layout = await computePdfLongLayout(scale);
       }
 
       const canvas = document.createElement('canvas');
@@ -671,6 +944,99 @@
     } finally { setBusy(false); }
   }
 
+  async function computePdfLongLayout(scale) {
+    const metas = [];
+    let maxWidth = 0, totalHeight = 0;
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+      const page = await pdfDoc.getPage(i);
+      const vp = page.getViewport({ scale });
+      const w = Math.max(1, Math.floor(vp.width));
+      const h = Math.max(1, Math.floor(vp.height));
+      metas.push({ page: page, w: w, h: h });
+      maxWidth = Math.max(maxWidth, w);
+      totalHeight += h;
+      if (i % 10 === 0) setStatus('正在计算尺寸 ' + i + '/' + pdfDoc.numPages + ' …');
+    }
+    return { metas: metas, width: maxWidth, height: totalHeight };
+  }
+
+  async function exportPptxLong() {
+    if (!pptxSlides || !pptxSlides.length) return;
+    setBusy(true);
+    try {
+      let scale = getScale();
+      const dims = pptxSlides.map(function (s) {
+        return {
+          w: Math.max(1, Math.round(s.width * scale)),
+          h: Math.max(1, Math.round(s.height * scale))
+        };
+      });
+
+      let maxWidth = 0, totalHeight = 0;
+      dims.forEach(function (d) {
+        maxWidth = Math.max(maxWidth, d.w);
+        totalHeight += d.h;
+      });
+
+      const shrink = computeShrink(maxWidth, totalHeight);
+      if (shrink < 1) {
+        const nw = Math.round(maxWidth * shrink), nh = Math.round(totalHeight * shrink);
+        const ok = window.confirm(
+          '拼接长图尺寸为 ' + maxWidth + ' × ' + totalHeight + ' 像素，超出浏览器画布上限。\n\n' +
+          '将自动降低分辨率到约 ' + (shrink * 100).toFixed(0) + '%（' + nw + ' × ' + nh + '）。\n\n是否继续？');
+        if (!ok) { setStatus('已取消'); return; }
+        scale = scale * shrink;
+        dims.forEach(function (d) { d.w = Math.round(d.w * shrink); d.h = Math.round(d.h * shrink); });
+        maxWidth = Math.round(maxWidth * shrink);
+        totalHeight = Math.round(totalHeight * shrink);
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = maxWidth;
+      canvas.height = totalHeight;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      let y = 0;
+      for (let i = 0; i < pptxSlides.length; i++) {
+        setStatus('正在拼接 ' + (i + 1) + '/' + pptxSlides.length + ' …');
+        const pc = await svgToCanvas(pptxSlides[i].svg, scale);
+        const x = Math.floor((maxWidth - pc.width) / 2);
+        ctx.drawImage(pc, x, y);
+        y += pc.height;
+        pc.width = 0; pc.height = 0;
+        await sleep(0);
+      }
+
+      const fmt = getFormat();
+      setStatus('正在生成图片文件 …');
+      const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+      downloadBlob(blob, fileName + '_long.' + fmt.ext);
+      setStatus('长图导出完成（' + canvas.width + ' × ' + canvas.height + '）', 'ok');
+      canvas.width = 0; canvas.height = 0;
+    } catch (err) {
+      console.error(err);
+      setStatus('拼接失败：' + err.message, 'error');
+    } finally { setBusy(false); }
+  }
+
+  async function exportDocxLong() {
+    setBusy(true);
+    setStatus('正在截取 DOCX 长图 …');
+    try {
+      const canvas = await captureDocxLongImage();
+      const fmt = getFormat();
+      const blob = await canvasToBlob(canvas, fmt.type, fmt.quality);
+      downloadBlob(blob, fileName + '_long.' + fmt.ext);
+      setStatus('长图导出完成（' + canvas.width + ' × ' + canvas.height + '）', 'ok');
+      canvas.width = 0; canvas.height = 0;
+    } catch (err) {
+      console.error(err);
+      setStatus('长图导出失败：' + err.message + '（可尝试降低分辨率倍率）', 'error');
+    } finally { setBusy(false); }
+  }
+
   /* ======================== JSZip ======================== */
   let jszipPromise = null;
   function ensureJSZip() {
@@ -687,16 +1053,15 @@
   }
 
   /* ======================== 事件 ======================== */
-  els.loadUrlBtn.addEventListener('click', function () { loadFromUrl(els.urlInput.value); });
-  els.urlInput.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') loadFromUrl(els.urlInput.value);
+  els.dropZone.addEventListener('click', function () {
+    if (!busy) els.fileInput.click();
   });
-  els.dropZone.addEventListener('click', function () { if (!busy) els.fileInput.click(); });
   els.fileInput.addEventListener('change', function () {
     const f = els.fileInput.files && els.fileInput.files[0];
-    if (f) loadFromFile(f);
+    if (f) handleFile(f);
     els.fileInput.value = '';
   });
+
   ['dragenter', 'dragover'].forEach(function (ev) {
     els.dropZone.addEventListener(ev, function (e) {
       e.preventDefault(); e.stopPropagation();
@@ -712,13 +1077,13 @@
   });
   els.dropZone.addEventListener('drop', function (e) {
     const files = e.dataTransfer && e.dataTransfer.files;
-    if (files && files.length) loadFromFile(files[0]);
+    if (files && files.length) handleFile(files[0]);
   });
   window.addEventListener('dragover', function (e) { e.preventDefault(); });
   window.addEventListener('drop', function (e) { e.preventDefault(); });
 
-  els.scaleInput.addEventListener('input', updateAllDims);
-  els.scaleInput.addEventListener('change', updateAllDims);
+  els.scaleInput.addEventListener('input', updateAllPdfDims);
+  els.scaleInput.addEventListener('change', updateAllPdfDims);
   els.formatSelect.addEventListener('change', updateQualityField);
   els.qualityInput.addEventListener('input', function () {
     els.qualityValue.textContent = parseFloat(els.qualityInput.value).toFixed(2);
@@ -727,6 +1092,7 @@
     const isJpeg = els.formatSelect.value === 'image/jpeg';
     els.qualityField.classList.toggle('disabled', !isJpeg);
   }
+
   els.exportAllBtn.addEventListener('click', exportAllPages);
   els.exportLongBtn.addEventListener('click', exportLongImage);
 
