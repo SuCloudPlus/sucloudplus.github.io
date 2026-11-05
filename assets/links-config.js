@@ -30,6 +30,16 @@ const LINKS_CONFIG = {
             "title": "Markdown编辑器",
             "description": "编辑Markdown",
             "url": "https://sucloudplus.github.io/tools/markdown"
+        },
+        {
+            "title": "PDF转图片导出",
+            "description": "PDF逐页、拼接图片导出",
+            "url": "https://sucloudplus.github.io/tools/PDF2Img"
+        },
+        {
+            "title": "文字模板生成器",
+            "description": "生成定制文字、背景、字体模板图片",
+            "url": "https://sucloudplus.github.io/tools/modtext"
         }
         // 在这里添加更多链接
     ]
