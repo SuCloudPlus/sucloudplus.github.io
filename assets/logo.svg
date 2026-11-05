@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img">
+  <title>SuCloudPlus</title>
+  <g transform="translate(75,130)" fill="#FDE1EB">
+    <path d="M-16,-22a16,20 0 1,1 32,0a16,20 0 1,1-32,0"/>
+    <path d="M-16,-22a16,20 0 1,1 32,0a16,20 0 1,1-32,0" transform="rotate(72)"/>
+    <path d="M-16,-22a16,20 0 1,1 32,0a16,20 0 1,1-32,0" transform="rotate(144)"/>
+    <path d="M-16,-22a16,20 0 1,1 32,0a16,20 0 1,1-32,0" transform="rotate(216)"/>
+    <path d="M-16,-22a16,20 0 1,1 32,0a16,20 0 1,1-32,0" transform="rotate(288)"/>
+    <path d="M-12,0a12,12 0 1,1 24,0a12,12 0 1,1-24,0"/>
+  </g>
+  <g transform="translate(125,80)">
+    <g fill="#A94B9E">
+      <path d="M-26,-35a26,32 0 1,1 52,0a26,32 0 1,1-52,0"/>
+      <path d="M-26,-35a26,32 0 1,1 52,0a26,32 0 1,1-52,0" transform="rotate(72)"/>
+      <path d="M-26,-35a26,32 0 1,1 52,0a26,32 0 1,1-52,0" transform="rotate(144)"/>
+      <path d="M-26,-35a26,32 0 1,1 52,0a26,32 0 1,1-52,0" transform="rotate(216)"/>
+      <path d="M-26,-35a26,32 0 1,1 52,0a26,32 0 1,1-52,0" transform="rotate(288)"/>
+    </g>
+    <g fill="#FCE287">
+      <path d="M-5,-10a5,12 0 1,1 10,0a5,12 0 1,1-10,0"/>
+      <path d="M-5,-10a5,12 0 1,1 10,0a5,12 0 1,1-10,0" transform="rotate(72)"/>
+      <path d="M-5,-10a5,12 0 1,1 10,0a5,12 0 1,1-10,0" transform="rotate(144)"/>
+      <path d="M-5,-10a5,12 0 1,1 10,0a5,12 0 1,1-10,0" transform="rotate(216)"/>
+      <path d="M-5,-10a5,12 0 1,1 10,0a5,12 0 1,1-10,0" transform="rotate(288)"/>
+    </g>
+  </g>
+</svg>
