@@ -198,6 +198,12 @@
 
     <div class="preview-area">
         <div id="capture-container">
+            <div id="capture-container">
+                <!-- 新增：用于承载背景图的 img 标签 -->
+                <img id="bg-img" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 0; pointer-events: none;" />
+    
+                <div id="text-area" style="z-index: 1;"></div>
+            </div>
             <div id="text-area"></div>
         </div>
     </div>
@@ -411,13 +417,27 @@
             els.styleBold.checked = CONFIG.defaultStyles.bold;
             els.styleStrike.checked = CONFIG.defaultStyles.strike;
 
-            // 4. 背景列表
+            // 4. 背景列表初始化与去重
+            let defaultBgToLoad = CONFIG.bgImageUrl; // 首先尝试使用单独配置的默认背景
+
             if (CONFIG.bgImageFolder && CONFIG.bgImageFolder.length > 0) {
                 els.bgListContainer.style.display = 'block';
+                
+                // 如果没有单独配置默认背景，那就默认用列表里的第一张
+                if (!defaultBgToLoad) {
+                    defaultBgToLoad = CONFIG.bgImageFolder[0]; 
+                }
+
                 CONFIG.bgImageFolder.forEach(url => {
                     const img = document.createElement('img');
                     img.src = url;
                     img.className = 'image-thumb';
+                    
+                    // 如果这张图正好是我们要默认加载的图，给它加上 active 选中状态
+                    if (url === defaultBgToLoad) {
+                        img.classList.add('active');
+                    }
+
                     img.onclick = () => {
                         document.querySelectorAll('.image-thumb').forEach(el => el.classList.remove('active'));
                         img.classList.add('active');
@@ -427,7 +447,10 @@
                 });
             }
 
-            if (CONFIG.bgImageUrl) setBackground(CONFIG.bgImageUrl);
+            // 最后统一只调用一次设置背景的方法（无论它是单独的URL，还是列表里的第一张）
+            if (defaultBgToLoad) {
+                setBackground(defaultBgToLoad);
+            }
 
             // 5. 首次渲染
             render();
@@ -437,15 +460,14 @@
         // 核心功能
         // ==========================================
         function setBackground(url) {
-            const img = new Image();
-            img.onload = () => {
-                els.container.style.backgroundImage = `url(${url})`;
-                els.container.style.aspectRatio = `${img.width} / ${img.height}`;
+            const bgImg = document.getElementById('bg-img');
+            // 只发起一次请求
+            bgImg.src = url;
+    
+            // 图片加载完成后，自动调整外层容器的长宽比
+            bgImg.onload = () => {
+                els.container.style.aspectRatio = `${bgImg.naturalWidth} / ${bgImg.naturalHeight}`;
             };
-            img.onerror = () => {
-                els.container.style.backgroundImage = `url(${url})`;
-            };
-            img.src = url;
         }
 
         els.bgUpload.addEventListener('change', (e) => {
