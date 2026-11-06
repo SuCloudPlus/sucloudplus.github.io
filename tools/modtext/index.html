@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>文本模板图片生成器</title>
-    <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     
     <!-- ========================================== -->
@@ -36,40 +35,39 @@
             ],
 
             // 🌟 在线字体配置
-            // 注意：name 必须与 CSS 文件里定义的 font-family 名字一模一样
             onlineFonts: [
                 {
                      name: "方正正中黑简体", 
                      mainCss: "https://sucloudplus.github.io/fonts/FZZhengHeiS-DB-GB/stylesheet.css",
-                     fallbackCss: "" // 可选
+                     fallbackCss: "" 
                  },
                  {
                      name: "得意黑", 
                      mainCss: "https://fontsapi.zeoseven.com/92/main/result.css",
-                     fallbackCss: "https://fontsapi-storage.zeoseven.com/92/main/result.css" // 可选
+                     fallbackCss: "https://fontsapi-storage.zeoseven.com/92/main/result.css"
                  }
             ],
 
             // 样式默认开关
             defaultStyles: {
-                grid: true,      // 田字格
-                italic: false,   // 斜体
-                bold: false,     // 加粗
-                strike: false    // 删除线
+                grid: true,      
+                italic: false,   
+                bold: false,     
+                strike: false    
             },
 
             // 参数默认值
-            textColor: "#5586FF", // 文字颜色
-            lineColor: "#7BAFE8", // 线条颜色
-            fontSize: 87, // 字号大小
-            textRatio: 0.80, // 文字大小比例 (占格子)
-            colGap: -2.0, // 列间距
-            lineGap: -2.0, // 行间距
-            textYOffset: 5, // 文字垂直微调
-            borderWidth: 2, // 外框线宽
-            dashWidth: 1.0, // 内虚线宽
-            dashDensity: 2, // 虚线密度
-            resolution: 2 // 清晰度倍率
+            textColor: "#5586FF", 
+            lineColor: "#7BAFE8", 
+            fontSize: 87, 
+            textRatio: 0.80, 
+            colGap: -2.0, 
+            lineGap: -2.0, 
+            textYOffset: 5, 
+            borderWidth: 2, 
+            dashWidth: 1.0, 
+            dashDensity: 2, 
+            resolution: 2 
         };
     </script>
 
@@ -106,12 +104,8 @@
             position: relative;
             width: 100%;
             max-width: 1067px;
-            max-height: 100%;
-            aspect-ratio: 16 / 9;
+            /* 移除固定宽高比，由 JS 根据图片动态设置 */
             background-color: #E2F0FF; 
-            background-size: contain; 
-            background-repeat: no-repeat;
-            background-position: center;
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
             display: flex;
             justify-content: center;
@@ -174,7 +168,11 @@
         .image-thumb.active { border-color: #2ECC71; }
 
         /* 文字区域 */
-        #text-area { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        #text-area { 
+            position: relative;
+            z-index: 1; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+        }
         .text-line { display: flex; justify-content: center; }
         .grid-box {
             position: relative; display: flex; justify-content: center; align-items: center;
@@ -185,7 +183,7 @@
 
         .grid-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
         
-        /* 文字绝对居中，确保各样式生效 */
+        /* 文字绝对居中 */
         .char-text {
             position: absolute; top: 0; left: 0;
             width: 100%; height: 100%;
@@ -194,16 +192,13 @@
         }
     </style>
 </head>
-<body class="layout-bottom">
+<body>
 
     <div class="preview-area">
+        <!-- 清理了多余的嵌套结构 -->
         <div id="capture-container">
-            <div id="capture-container">
-                <!-- 新增：用于承载背景图的 img 标签 -->
-                <img id="bg-img" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; z-index: 0; pointer-events: none;" />
-    
-                <div id="text-area" style="z-index: 1;"></div>
-            </div>
+            <!-- object-fit: fill 配合 JS 动态计算的宽高比，保证铺满且不留白边 -->
+            <img id="bg-img" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0; pointer-events: none;" />
             <div id="text-area"></div>
         </div>
     </div>
@@ -300,15 +295,12 @@
     </div>
 
     <script>
-        // ==========================================
-        // 🌟 动态加载在线字体 CSS (你提供的函数)
-        // ==========================================
         async function loadFontCSS(main, fallback) {
             try {
                 let response = await fetch(main, { method: "GET", mode: "cors" });
                 if (!response.ok) throw new Error('Main font load failed');
                 let cssText = await response.text();
-                const baseUrl = main.replace(/[^/]*\.css$/, ""); // 兼容替换最后一段
+                const baseUrl = main.replace(/[^/]*\.css$/, ""); 
 
                 const style = document.createElement('style');
                 style.textContent = cssText.replace(
@@ -342,9 +334,9 @@
             }
         }
 
-        // 获取DOM
         const els = {
             container: document.getElementById('capture-container'),
+            bgImg: document.getElementById('bg-img'), // 获取 img 标签
             textArea: document.getElementById('text-area'),
             textInput: document.getElementById('text-input'),
             fontFamily: document.getElementById('font-family'),
@@ -370,27 +362,20 @@
             toFullwidthBtn: document.getElementById('to-fullwidth')
         };
 
-        // ==========================================
-        // 初始化流程 (包含字体加载)
-        // ==========================================
         async function initApp() {
             document.body.className = `layout-${CONFIG.panelPosition}`;
 
-            // 1. 加载在线字体
             if (CONFIG.onlineFonts && CONFIG.onlineFonts.length > 0) {
                 for (let font of CONFIG.onlineFonts) {
                     const success = await loadFontCSS(font.mainCss, font.fallbackCss);
                     if (success) {
-                        // 加载成功，将字体名加入可选列表
                         if (!CONFIG.availableFonts.includes(font.name)) {
                             CONFIG.availableFonts.push(font.name);
                         }
-                        console.log(`成功加载在线字体: ${font.name}`);
                     }
                 }
             }
 
-            // 2. 填充字体下拉框
             CONFIG.availableFonts.forEach(font => {
                 const opt = document.createElement('option');
                 opt.value = font;
@@ -399,7 +384,6 @@
                 els.fontFamily.appendChild(opt);
             });
 
-            // 3. 绑定默认值
             els.textColor.value = CONFIG.textColor;
             els.lineColor.value = CONFIG.lineColor;
             els.fontSize.value = CONFIG.fontSize;
@@ -417,13 +401,11 @@
             els.styleBold.checked = CONFIG.defaultStyles.bold;
             els.styleStrike.checked = CONFIG.defaultStyles.strike;
 
-            // 4. 背景列表初始化与去重
-            let defaultBgToLoad = CONFIG.bgImageUrl; // 首先尝试使用单独配置的默认背景
+            let defaultBgToLoad = CONFIG.bgImageUrl; 
 
             if (CONFIG.bgImageFolder && CONFIG.bgImageFolder.length > 0) {
                 els.bgListContainer.style.display = 'block';
                 
-                // 如果没有单独配置默认背景，那就默认用列表里的第一张
                 if (!defaultBgToLoad) {
                     defaultBgToLoad = CONFIG.bgImageFolder[0]; 
                 }
@@ -433,7 +415,6 @@
                     img.src = url;
                     img.className = 'image-thumb';
                     
-                    // 如果这张图正好是我们要默认加载的图，给它加上 active 选中状态
                     if (url === defaultBgToLoad) {
                         img.classList.add('active');
                     }
@@ -447,26 +428,18 @@
                 });
             }
 
-            // 最后统一只调用一次设置背景的方法（无论它是单独的URL，还是列表里的第一张）
             if (defaultBgToLoad) {
                 setBackground(defaultBgToLoad);
             }
 
-            // 5. 首次渲染
             render();
         }
 
-        // ==========================================
-        // 核心功能
-        // ==========================================
         function setBackground(url) {
-            const bgImg = document.getElementById('bg-img');
-            // 只发起一次请求
-            bgImg.src = url;
-    
-            // 图片加载完成后，自动调整外层容器的长宽比
-            bgImg.onload = () => {
-                els.container.style.aspectRatio = `${bgImg.naturalWidth} / ${bgImg.naturalHeight}`;
+            els.bgImg.src = url;
+            els.bgImg.onload = () => {
+                // 调整容器的长宽比，使其与图片完全一致
+                els.container.style.aspectRatio = `${els.bgImg.naturalWidth} / ${els.bgImg.naturalHeight}`;
             };
         }
 
@@ -494,9 +467,6 @@
             render();
         });
 
-        // ==========================================
-        // 渲染函数 (修复样式和字体拼接)
-        // ==========================================
         function render() {
             const text = els.textInput.value;
             
@@ -510,8 +480,6 @@
             const dashDensity = parseFloat(els.dashDensity.value);
             const textColor = els.textColor.value;
             const lineColor = els.lineColor.value;
-            
-            // 获取当前选中的字体
             const currentFont = els.fontFamily.value || CONFIG.defaultFont;
             
             const showGrid = els.styleGrid.checked;
@@ -531,7 +499,6 @@
             const boxSize = Math.round(size / ratio);
             const dashArray = `${dashDensity}, ${dashDensity}`;
 
-            // 🌟 修复 1：使用数组拼接确保每个样式都生效，字体加上单引号防空格报错
             const styleStr = [
                 `font-size: ${size}px`,
                 `color: ${textColor}`,
@@ -572,7 +539,6 @@
                             `;
                         }
 
-                        // 🌟 修复 2：样式通过 styleStr 传入，确保样式正常渲染
                         html += `
                             <div class="grid-box" style="
                                 width: ${boxSize}px; 
@@ -592,7 +558,6 @@
             els.textArea.innerHTML = html;
         }
 
-        // 监听控件
         const inputs = [
             els.textInput, els.fontFamily, els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
             els.textColor, els.lineColor, els.fontSize, els.textRatio, els.colGap, els.lineGap, 
@@ -600,9 +565,10 @@
         ];
         inputs.forEach(el => el.addEventListener('input', render));
 
-        // 导出功能
+        // 修复导出逻辑
         els.exportBtn.addEventListener('click', () => {
-            if (!els.container.style.backgroundImage) {
+            // 检查 img 标签是否有 src，而不是检查 CSS 背景
+            if (!els.bgImg.src) {
                 alert('提示：你还没有加载背景图片，导出的图片将只有透明/默认底色！');
             }
 
@@ -633,7 +599,6 @@
             });
         });
 
-        // 启动应用
         initApp();
     </script>
 </body>
