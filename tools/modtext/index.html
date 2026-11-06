@@ -12,31 +12,29 @@
     <!-- ========================================== -->
     <script>
         const CONFIG = {
-            // 面板位置: 'top' | 'bottom' | 'left' | 'right'
             panelPosition: "right", 
             
-            // 🌟 主背景图路径（优先加载）
-            bgImageUrl: "src/bg01.jpg", 
-            
-            // 🌟 备用背景图路径（主图加载失败时自动使用）
-            bgFallbackUrl: "src/bg01.jpg",
-            
-            // 预设的背景图列表
-            bgImageFolder: [
-              "src/bg01.jpg",
-              "https://free.picui.cn/free/14641/2026/11/06/6aeddafd2786c.jpg"
+            // 预设的背景图片（支持多源，按顺序尝试加载，前一个失败尝试下一个）
+            bgImages: [
+                {
+                    name: "默认背景1",
+                    sources: [
+                        "src/bg01.jpg", // 1. 优先尝试本地相对路径
+                        // "https://raw.githubusercontent.com/你的用户名/仓库名/main/src/bg01.jpg", // 2. 尝试 GitHub
+                        // "https://你的图床链接.com/bg01.jpg" // 3. 尝试其他图床
+                    ]
+                }
+                // 你可以继续添加更多图片配置
+                // { name: "背景2", sources: ["src/bg02.png"] }
             ],
+            
+            // 如果 bgImages 为空，或者全部加载失败，默认显示此图片
+            defaultBgImage: "src/bg01.jpg",
 
             // 字体设置
             defaultFont: "方正正中黑简体",
             availableFonts: [
-                "方正正中黑简体", 
-                "得意黑", 
-                "Microsoft YaHei", 
-                "SimSun", 
-                "KaiTi", 
-                "Arial", 
-                "sans-serif"
+                "方正正中黑简体", "得意黑", "Microsoft YaHei", "SimSun", "KaiTi", "Arial", "sans-serif"
             ],
 
             // 🌟 在线字体配置
@@ -53,26 +51,13 @@
                  }
             ],
 
-            // 样式默认开关
-            defaultStyles: {
-                grid: true,      
-                italic: false,   
-                bold: false,     
-                strike: false    
-            },
+            defaultStyles: { grid: true, italic: false, bold: false, strike: false },
 
             // 参数默认值
-            textColor: "#5586FF", 
-            lineColor: "#7BAFE8", 
-            fontSize: 87, 
-            textRatio: 0.80, 
-            colGap: -2.0, 
-            lineGap: -2.0, 
-            textYOffset: 5, 
-            borderWidth: 2, 
-            dashWidth: 1.0, 
-            dashDensity: 2, 
-            resolution: 2 
+            textColor: "#5586FF", lineColor: "#7BAFE8",
+            fontSize: 87, textRatio: 0.80,
+            colGap: -2.0, lineGap: -2.0, textYOffset: 5,
+            borderWidth: 2, dashWidth: 1.0, dashDensity: 2, resolution: 2 
         };
     </script>
 
@@ -116,6 +101,15 @@
             align-items: center;
             overflow: hidden;
             border-radius: 0px;
+        }
+
+        /* 背景图利用 object-fit: fill 结合 JS 动态宽高比，完美铺满不拉伸 */
+        #bg-img {
+            position: absolute; top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            object-fit: fill; 
+            z-index: 0; 
+            pointer-events: none;
         }
 
         /* 设置面板 */
@@ -172,11 +166,7 @@
         .image-thumb.active { border-color: #2ECC71; }
 
         /* 文字区域 */
-        #text-area { 
-            position: relative;
-            z-index: 1; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-        }
+        #text-area { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .text-line { display: flex; justify-content: center; }
         .grid-box {
             position: relative; display: flex; justify-content: center; align-items: center;
@@ -184,15 +174,10 @@
         }
         .grid-box:last-child { margin-right: 0 !important; }
         .text-line:last-child { margin-bottom: 0 !important; }
-
         .grid-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
-        
-        /* 文字绝对居中 */
         .char-text {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%;
-            display: flex; justify-content: center; align-items: center;
-            line-height: 1; z-index: 2; 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center; line-height: 1; z-index: 2; 
         }
     </style>
 </head>
@@ -200,8 +185,7 @@
 
     <div class="preview-area">
         <div id="capture-container">
-            <!-- 增加 crossorigin="anonymous" 尽可能允许跨域导出 -->
-            <img id="bg-img" crossorigin="anonymous" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0; pointer-events: none;" />
+            <img id="bg-img" alt="background" />
             <div id="text-area"></div>
         </div>
     </div>
@@ -214,7 +198,7 @@
                 <textarea id="text-input">乘风破浪</textarea>
             </div>
             <div class="form-group">
-                <label>自定义上传背景 (防导出报错)</label>
+                <label>自定义上传背景</label>
                 <input type="file" id="bg-upload" accept="image/*" style="font-size:12px;">
             </div>
             <div id="bg-list-container" style="display:none;">
@@ -254,7 +238,7 @@
                 <input type="range" id="font-size" min="16" max="200">
             </div>
             <div class="form-group">
-                <label>文字大小比例 (占格子): <span id="text-ratio-val"></span></label>
+                <label>文字大小比例: <span id="text-ratio-val"></span></label>
                 <input type="range" id="text-ratio" min="0.4" max="1.0" step="0.05">
             </div>
             <div class="form-group">
@@ -298,18 +282,22 @@
     </div>
 
     <script>
+        // ==========================================
+        // 🌟 工具函数与缓存池
+        // ==========================================
+        
+        // 图片缓存池（将网络图片转为Base64后永久缓存，避免重复请求，彻底解决跨域导出失败）
+        const ImagePool = new Map();
+
+        // 加载字体 CSS
         async function loadFontCSS(main, fallback) {
             try {
                 let response = await fetch(main, { method: "GET", mode: "cors" });
                 if (!response.ok) throw new Error('Main font load failed');
                 let cssText = await response.text();
                 const baseUrl = main.replace(/[^/]*\.css$/, ""); 
-
                 const style = document.createElement('style');
-                style.textContent = cssText.replace(
-                    /url\(['"]?\.\/([^'")]+)['"]?\)/g,
-                    `url("${baseUrl}$1")`
-                );
+                style.textContent = cssText.replace(/url\(['"]?\.\/([^'")]+)['"]?\)/g, `url("${baseUrl}$1")`);
                 document.head.appendChild(style);
                 return true;
             } catch (error) {
@@ -320,23 +308,63 @@
                         if (!response.ok) throw new Error('Fallback font load failed');
                         let cssText = await response.text();
                         const baseUrl = fallback.replace(/[^/]*\.css$/, "");
-
                         const style = document.createElement('style');
-                        style.textContent = cssText.replace(
-                            /url\(['"]?\.\/([^'")]+)['"]?\)/g,
-                            `url("${baseUrl}$1")`
-                        );
+                        style.textContent = cssText.replace(/url\(['"]?\.\/([^'")]+)['"]?\)/g, `url("${baseUrl}$1")`);
                         document.head.appendChild(style);
                         return true;
-                    } catch (fallbackError) {
-                        console.error('备用字体加载失败:', fallbackError);
-                        return false;
-                    }
+                    } catch (e) { return false; }
                 }
                 return false;
             }
         }
 
+        // 将单张图片加载并转为 Base64
+        function fetchImageAsBase64(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "Anonymous"; // 允许跨域加载
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    try {
+                        resolve({ base64: canvas.toDataURL('image/png'), width: img.naturalWidth, height: img.naturalHeight });
+                    } catch (e) {
+                        // 极少数特殊跨域图床降级方案
+                        resolve({ base64: url, width: img.naturalWidth, height: img.naturalHeight });
+                    }
+                };
+                img.onerror = () => reject(new Error('Image load error'));
+                img.src = url;
+            });
+        }
+
+        // 多源加载（按顺序尝试）
+        async function loadImageWithFallback(sources) {
+            for (let url of sources) {
+                try {
+                    const data = await fetchImageAsBase64(url);
+                    console.log(`✅ 图片加载成功: ${url}`);
+                    return data;
+                } catch (err) {
+                    console.warn(`⚠️ 图片加载失败，尝试下一个源: ${url}`);
+                }
+            }
+            throw new Error('所有图片源均加载失败');
+        }
+
+        // 渲染防抖 (优化拖动滑块时的性能)
+        let renderTimer = null;
+        function scheduleRender() {
+            if (renderTimer) clearTimeout(renderTimer);
+            renderTimer = setTimeout(() => {
+                render();
+            }, 16); // 约 60fps
+        }
+
+        // 获取DOM
         const els = {
             container: document.getElementById('capture-container'),
             bgImg: document.getElementById('bg-img'),
@@ -365,16 +393,18 @@
             toFullwidthBtn: document.getElementById('to-fullwidth')
         };
 
+        // ==========================================
+        // 初始化逻辑
+        // ==========================================
         async function initApp() {
             document.body.className = `layout-${CONFIG.panelPosition}`;
 
+            // 1. 加载字体
             if (CONFIG.onlineFonts && CONFIG.onlineFonts.length > 0) {
                 for (let font of CONFIG.onlineFonts) {
                     const success = await loadFontCSS(font.mainCss, font.fallbackCss);
-                    if (success) {
-                        if (!CONFIG.availableFonts.includes(font.name)) {
-                            CONFIG.availableFonts.push(font.name);
-                        }
+                    if (success && !CONFIG.availableFonts.includes(font.name)) {
+                        CONFIG.availableFonts.push(font.name);
                     }
                 }
             }
@@ -387,6 +417,7 @@
                 els.fontFamily.appendChild(opt);
             });
 
+            // 2. 初始化控件默认值
             els.textColor.value = CONFIG.textColor;
             els.lineColor.value = CONFIG.lineColor;
             els.fontSize.value = CONFIG.fontSize;
@@ -398,81 +429,75 @@
             els.dashWidth.value = CONFIG.dashWidth;
             els.dashDensity.value = CONFIG.dashDensity;
             els.resolution.value = CONFIG.resolution;
-            
             els.styleGrid.checked = CONFIG.defaultStyles.grid;
             els.styleItalic.checked = CONFIG.defaultStyles.italic;
             els.styleBold.checked = CONFIG.defaultStyles.bold;
             els.styleStrike.checked = CONFIG.defaultStyles.strike;
 
-            let defaultBgToLoad = CONFIG.bgImageUrl; 
-
-            if (CONFIG.bgImageFolder && CONFIG.bgImageFolder.length > 0) {
+            // 3. 初始化背景图片列表
+            if (CONFIG.bgImages && CONFIG.bgImages.length > 0) {
                 els.bgListContainer.style.display = 'block';
-                
-                if (!defaultBgToLoad) {
-                    defaultBgToLoad = CONFIG.bgImageFolder[0]; 
-                }
-
-                CONFIG.bgImageFolder.forEach(url => {
+                CONFIG.bgImages.forEach((bg, index) => {
                     const img = document.createElement('img');
-                    img.src = url;
+                    // 缩略图优先使用第一个源的路径，不进行跨域转换（省性能）
+                    img.src = bg.sources[0]; 
                     img.className = 'image-thumb';
-                    
-                    if (url === defaultBgToLoad) {
-                        img.classList.add('active');
-                    }
+                    if (index === 0) img.classList.add('active');
 
                     img.onclick = () => {
                         document.querySelectorAll('.image-thumb').forEach(el => el.classList.remove('active'));
                         img.classList.add('active');
-                        // 判断当前点击的是否是主图，如果是，则绑定备用图
-                        let fallback = (url === CONFIG.bgImageUrl) ? CONFIG.bgFallbackUrl : null;
-                        setBackground(url, fallback);
+                        applyBackground(bg, img.classList.contains('active'));
                     };
                     els.imageList.appendChild(img);
                 });
+                
+                // 加载第一张作为默认背景
+                applyBackground(CONFIG.bgImages[0]);
+            } else if (CONFIG.defaultBgImage) {
+                applyBackground({ name: '默认', sources: [CONFIG.defaultBgImage] });
             }
 
-            if (defaultBgToLoad) {
-                // 初始化时，如果加载的是主图，带上备用图逻辑
-                let fallback = (defaultBgToLoad === CONFIG.bgImageUrl) ? CONFIG.bgFallbackUrl : null;
-                setBackground(defaultBgToLoad, fallback);
-            }
-
+            // 首次渲染文字
             render();
         }
 
-        // 🌟 升级版 setBackground，带失败自动重试 (fallback)
-        function setBackground(url, fallbackUrl) {
-            els.bgImg.src = url;
-            
-            els.bgImg.onload = () => {
-                // 调整容器的长宽比，使其与图片完全一致
-                els.container.style.aspectRatio = `${els.bgImg.naturalWidth} / ${els.bgImg.naturalHeight}`;
-            };
-            
-            els.bgImg.onerror = () => {
-                // 防止死循环，只有在 fallbackUrl 存在且不等于当前 url 时才重试
-                if (fallbackUrl && url !== fallbackUrl) {
-                    console.warn(`图床加载失败 (${url})，自动切换到备用图 (${fallbackUrl})...`);
-                    // 自动把激活状态也切到备用图
-                    document.querySelectorAll('.image-thumb').forEach(el => {
-                        if(el.src === fallbackUrl) el.classList.add('active');
-                        else el.classList.remove('active');
-                    });
-                    setBackground(fallbackUrl, null);
-                } else {
-                    console.error(`图片加载彻底失败: ${url}`);
+        // 应用背景图（从缓存池取或网络请求）
+        async function applyBackground(bgConfig, showLoading = false) {
+            try {
+                let data = ImagePool.get(bgConfig.name);
+                
+                if (!data) {
+                    // 如果缓存池没有，才发起网络请求
+                    if (showLoading) els.bgImg.style.opacity = '0.5'; // 视觉反馈
+                    data = await loadImageWithFallback(bgConfig.sources);
+                    ImagePool.set(bgConfig.name, data); // 存入缓存
                 }
-            };
+
+                // 应用到 DOM
+                els.bgImg.src = data.base64;
+                els.bgImg.style.opacity = '1';
+                els.container.style.aspectRatio = `${data.width} / ${data.height}`;
+            } catch (err) {
+                console.error('背景加载彻底失败:', err);
+                els.bgImg.style.opacity = '1';
+                alert('背景图片加载失败，请检查网络或配置。');
+            }
         }
 
+        // ==========================================
+        // 事件绑定
+        // ==========================================
+        
+        // 用户上传本地图片
         els.bgUpload.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (event) => {
-                setBackground(event.target.result);
+                // 上传的图片也做一次缓存处理
+                const customBg = { name: 'custom_upload', sources: [event.target.result] };
+                applyBackground(customBg);
                 document.querySelectorAll('.image-thumb').forEach(el => el.classList.remove('active'));
             };
             reader.readAsDataURL(file);
@@ -488,9 +513,20 @@
                 else result += text[i];
             }
             els.textInput.value = result;
-            render();
+            scheduleRender();
         });
 
+        // 绑定控件的 input 事件（使用防抖）
+        const inputs = [
+            els.textInput, els.fontFamily, els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
+            els.textColor, els.lineColor, els.fontSize, els.textRatio, els.colGap, els.lineGap, 
+            els.textYOffset, els.borderWidth, els.dashWidth, els.dashDensity
+        ];
+        inputs.forEach(el => el.addEventListener('input', scheduleRender));
+
+        // ==========================================
+        // 渲染引擎
+        // ==========================================
         function render() {
             const text = els.textInput.value;
             
@@ -511,6 +547,7 @@
             const isBold = els.styleBold.checked;
             const isStrike = els.styleStrike.checked;
 
+            // UI 值更新
             document.getElementById('font-size-val').innerText = size;
             document.getElementById('text-ratio-val').innerText = ratio.toFixed(2);
             document.getElementById('col-gap-val').innerText = colGap;
@@ -582,16 +619,13 @@
             els.textArea.innerHTML = html;
         }
 
-        const inputs = [
-            els.textInput, els.fontFamily, els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
-            els.textColor, els.lineColor, els.fontSize, els.textRatio, els.colGap, els.lineGap, 
-            els.textYOffset, els.borderWidth, els.dashWidth, els.dashDensity
-        ];
-        inputs.forEach(el => el.addEventListener('input', render));
-
+        // ==========================================
+        // 导出引擎
+        // ==========================================
         els.exportBtn.addEventListener('click', () => {
-            if (!els.bgImg.src) {
-                alert('提示：你还没有加载背景图片，导出的图片将只有透明/默认底色！');
+            // 此时背景肯定是 Base64，不会报跨域错，也不会重新发请求
+            if (!els.bgImg.src || els.bgImg.src.startsWith('data:,') || els.bgImg.src === window.location.href) {
+                alert('提示：背景图片尚未加载完成，导出可能只有透明底色。');
             }
 
             const originalText = els.exportBtn.innerText;
@@ -615,12 +649,13 @@
                 els.exportBtn.disabled = false;
             }).catch(err => {
                 console.error('导出失败:', err);
-                alert('导出失败，可能是图床不支持跨域导出。建议点击【自定义上传背景】选择本地图片后再导出。');
+                alert('导出失败，请重试。');
                 els.exportBtn.innerText = originalText;
                 els.exportBtn.disabled = false;
             });
         });
 
+        // 启动
         initApp();
     </script>
 </body>
