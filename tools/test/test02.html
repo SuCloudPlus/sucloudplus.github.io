@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>图片链接检测工具（含防盗链诊断）</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    padding: 26px 16px 70px;
+    background: radial-gradient(1200px 600px at 50% -10%, #17233a 0%, #0d1117 55%) fixed;
+    color: #e6edf3;
+    font: 14px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: .3px; }
+  .desc { color: #8b949e; margin: 0 0 18px; font-size: 13px; }
+
+  .envhint {
+    margin: 0 0 14px; padding: 9px 13px;
+    border: 1px solid rgba(210,153,34,.35);
+    background: rgba(210,153,34,.08);
+    color: #d29922; border-radius: 9px; font-size: 12.5px;
+  }
+  .envhint[hidden] { display: none; }
+
+  .panel {
+    background: rgba(22, 27, 34, .85);
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    padding: 14px;
+    backdrop-filter: blur(6px);
+  }
+  textarea {
+    width: 100%;
+    min-height: 118px;
+    resize: vertical;
+    background: #0d1117;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font: 13px/1.7 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  textarea::placeholder { color: #4d5866; }
+  textarea:focus { border-color: #58a6ff; box-shadow: 0 0 0 3px rgba(88,166,255,.15); }
+
+  .bar { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 12px; }
+  button {
+    cursor: pointer;
+    border: 1px solid #30363d;
+    background: #21262d;
+    color: #e6edf3;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: .15s;
+  }
+  button:hover:not(:disabled) { background: #30363d; border-color: #3d444d; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  button.primary {
+    background: linear-gradient(180deg, #2f81f7, #1f6feb);
+    border-color: #1f6feb;
+    color: #fff;
+  }
+  button.primary:hover:not(:disabled) { background: linear-gradient(180deg, #4b93f8, #2f81f7); }
+
+  .opt { display: inline-flex; align-items: center; gap: 6px; color: #8b949e; font-size: 13px; user-select: none; cursor: pointer; }
+  .opt input[type="number"] {
+    width: 62px; background: #0d1117; color: #e6edf3; border: 1px solid #30363d;
+    border-radius: 6px; padding: 4px 6px; font-size: 13px; outline: none;
+  }
+  .opt input[type="checkbox"] { accent-color: #2f81f7; width: 15px; height: 15px; }
+  .hint { margin-left: auto; color: #6e7681; font-size: 12.5px; }
+  .hint b { color: #58a6ff; }
+
+  .summary {
+    margin-top: 16px;
+    padding: 11px 15px;
+    background: rgba(22,27,34,.85);
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #8b949e;
+  }
+  .summary b { color: #e6edf3; }
+  .summary[hidden] { display: none; }
+
+  .results {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 14px;
+  }
+
+  .card {
+    background: rgba(22,27,34,.9);
+    border: 1px solid #21262d;
+    border-radius: 12px;
+    overflow: hidden;
+    animation: pop .25s ease;
+  }
+  @keyframes pop { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  .card-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 13px;
+    border-bottom: 1px solid #21262d;
+    background: rgba(13,17,23,.5);
+  }
+  .card-head .u {
+    flex: 1; min-width: 0;
+    font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #9aa7b4;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .badge {
+    flex: none;
+    font-size: 11.5px; font-weight: 600;
+    padding: 3px 9px; border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .badge.pending { color: #d29922; background: rgba(210,153,34,.12); border-color: rgba(210,153,34,.35); }
+  .badge.good    { color: #3fb950; background: rgba(63,185,80,.12);  border-color: rgba(63,185,80,.35); }
+  .badge.warn    { color: #d29922; background: rgba(210,153,34,.12); border-color: rgba(210,153,34,.35); }
+  .badge.bad     { color: #f85149; background: rgba(248,81,73,.12);  border-color: rgba(248,81,73,.35); }
+
+  .card-body { display: flex; gap: 12px; padding: 12px 13px 14px; }
+  .thumb {
+    flex: none; width: 92px; height: 92px;
+    border-radius: 9px; overflow: hidden;
+    background:
+      linear-gradient(45deg, #161b22 25%, transparent 25%, transparent 75%, #161b22 75%) 0 0/16px 16px,
+      linear-gradient(45deg, #161b22 25%, #10151b 25%, #10151b 75%, #161b22 75%) 8px 8px/16px 16px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid #21262d;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .thumb .ph { color: #4d5866; font-size: 11px; }
+  .thumb .ph.bad { color: #f85149; font-size: 20px; }
+
+  .rows { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .row { display: flex; gap: 8px; font-size: 12.5px; align-items: baseline; }
+  .row .k { flex: none; width: 62px; color: #6e7681; }
+  .row .v { flex: 1; min-width: 0; color: #c9d1d9; word-break: break-word; }
+
+  .good { color: #3fb950; }
+  .bad  { color: #f85149; }
+  .warn { color: #d29922; }
+  .muted { color: #6e7681; }
+
+  code {
+    font: 11.5px ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #0d1117; border: 1px solid #21262d;
+    padding: 1px 5px; border-radius: 5px; color: #79c0ff;
+  }
+  details summary {
+    cursor: pointer; color: #58a6ff; font-size: 12px; outline: none;
+    list-style: none; user-select: none;
+  }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; }
+  details[open] summary::before { content: "▾ "; }
+  .hlist {
+    margin-top: 5px; max-height: 160px; overflow: auto;
+    background: #0d1117; border: 1px solid #21262d; border-radius: 7px;
+    padding: 7px 9px;
+    font: 11.5px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: #8b949e;
+  }
+  .hlist b { color: #79c0ff; font-weight: 500; }
+  ul.notes { margin: 0; padding-left: 16px; }
+  ul.notes li { color: #d29922; font-size: 12px; margin-bottom: 2px; }
+
+  @media (max-width: 460px) {
+    .card-body { flex-direction: column; }
+    .thumb { width: 100%; height: 130px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🖼️ 图片链接检测</h1>
+  <p class="desc">检测图片能否加载、CORS 配置、Referer 防盗链、尺寸、文件大小、缓存策略与加载速度。每行一个链接。</p>
+
+  <div id="envHint" class="envhint" hidden></div>
+
+  <div class="panel">
+    <textarea id="urls" spellcheck="false"
+      placeholder="https://example.com/a.jpg&#10;https://i2.hdslb.com/bfs/article/xxxx.jpg"></textarea>
+    <div class="bar">
+      <button id="run" class="primary">开始检测</button>
+      <button id="clear">清空</button>
+      <label class="opt"><input type="checkbox" id="noCache" checked /> 绕过缓存</label>
+      <label class="opt"><input type="checkbox" id="antiLeech" checked /> 探测防盗链</label>
+      <label class="opt">超时 <input type="number" id="timeout" value="15" min="1" max="120" /> 秒</label>
+      <span class="hint">共 <b id="count">0</b> 个链接</span>
+    </div>
+  </div>
+
+  <div id="summary" class="summary" hidden></div>
+  <div id="results" class="results"></div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const inputEl   = $('#urls');
+  const runBtn    = $('#run');
+  const clearBtn  = $('#clear');
+  const noCacheEl = $('#noCache');
+  const antiLeechEl = $('#antiLeech');
+  const timeoutEl = $('#timeout');
+  const countEl   = $('#count');
+  const resultsEl = $('#results');
+  const summaryEl = $('#summary');
+  const envHintEl = $('#envHint');
+
+  const MAX_CONCURRENCY = 4;
+  const isHttpPage = /^https?:$/.test(location.protocol);
+  let running = false;
+
+  if (!isHttpPage) {
+    envHintEl.hidden = false;
+    envHintEl.textContent =
+      '当前页面不在 http(s) 环境下运行（' + location.protocol + '），浏览器无法正常模拟 Referer，防盗链检测结果仅供参考。建议通过本地服务器或 GitHub Pages 打开。';
+  }
+
+  /* ==================== 工具函数 ==================== */
+  const fmtMs = (ms) =>
+    ms == null ? '—' : (ms < 1000 ? Math.round(ms) + ' ms' : (ms / 1000).toFixed(2) + ' s');
+
+  const fmtBytes = (b) => {
+    if (b == null || isNaN(b)) return '—';
+    if (b < 1024) return b + ' B';
+    const units = ['KB', 'MB', 'GB'];
+    let i = -1;
+    do { b /= 1024; i++; } while (b >= 1024 && i < units.length - 1);
+    return b.toFixed(b >= 100 ? 0 : 1) + ' ' + units[i];
+  };
+
+  const speedText = (bytes, ms) => {
+    if (!bytes || !ms) return '—';
+    return fmtBytes(bytes / (ms / 1000)) + '/s';
+  };
+
+  const esc = (s) => String(s).replace(/[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  function withCacheBust(href) {
+    try {
+      const u = new URL(href);
+      u.searchParams.set('_cb', Date.now().toString(36) + Math.random().toString(36).slice(2, 7));
+      return u.href;
+    } catch (_) { return href; }
+  }
+
+  function getTiming(url) {
+    try {
+      const list = performance.getEntriesByName(url, 'resource');
+      return list.length ? list[list.length - 1] : null;
+    } catch (_) { return null; }
+  }
+
+  /* ==================== 底层探测 ==================== */
+
+  // 通用图片加载：支持 crossOrigin 与 referrerPolicy
+  function loadImage(url, timeoutMs, opts) {
+    opts = opts || {};
+    return new Promise((resolve) => {
+      const img = new Image();
+      if (opts.crossOrigin) img.crossOrigin = opts.crossOrigin;
+      if (opts.referrerPolicy) img.referrerPolicy = opts.referrerPolicy;
+
+      let settled = false;
+      const start = performance.now();
+      const done = (ok, err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve({ ok, err: err || null, ms: performance.now() - start, img });
+      };
+      const timer = setTimeout(() => done(false, '超时'), timeoutMs);
+      img.onload = () => done(true, null);
+      img.onerror = () => done(false, '无法加载');
+      img.src = url;
+    });
+  }
+
+  // 用 fetch CORS 模式，判断服务端是否放开跨域
+  async function fetchCors(url, timeoutMs, noCache) {
+    const start = performance.now();
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, {
+        mode: 'cors',
+        cache: noCache ? 'no-store' : 'default',
+        credentials: 'omit',
+        signal: ctrl.signal,
+      });
+      const headers = {};
+      res.headers.forEach((v, k) => { headers[k] = v; });
+      let size = null;
+      try {
+        const buf = await res.arrayBuffer();
+        size = buf.byteLength;
+      } catch (_) { /* 读不到 body 就算了 */ }
+      return {
+        ok: true,
+        httpOk: res.ok,
+        status: res.status,
+        headers,
+        size,
+        ms: performance.now() - start,
+        finalUrl: res.url,
+      };
+    } catch (e) {
+      return {
+        ok: false,
+        error: e.name === 'AbortError' ? '请求超时' : (e.message || String(e)),
+        ms: performance.now() - start,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  // no-cors 探针：能返回 opaque 响应就说明网络层是通的
+  async function probeNoCors(url, timeoutMs) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      await fetch(url, { mode: 'no-cors', cache: 'no-store', credentials: 'omit', signal: ctrl.signal });
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: e.name === 'AbortError' ? '请求超时' : (e.message || String(e)) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * 防盗链探测：用三种 referrerPolicy 各加载一次图片
+   *   - no-referrer        → 完全不发送 Referer
+   *   - unsafe-url         → 发送完整 URL（最严格）
+   *   - strict-origin-when-cross-origin → 默认策略，跨域只发 origin
+   * 三次必须使用不同的 cache-bust URL，否则会被浏览器缓存导致策略不生效
+   */
+  async function probeAntiLeech(baseUrl, timeoutMs) {
+    const make = (policy) =>
+      loadImage(withCacheBust(baseUrl), timeoutMs, { referrerPolicy: policy });
+    const [noRef, unsafe, def] = await Promise.all([
+      make('no-referrer'),
+      make('unsafe-url'),
+      make('strict-origin-when-cross-origin'),
+    ]);
+    return { noRef, unsafe, def };
+  }
+
+  function diagnoseAntiLeech(r) {
+    const N = r.noRef.ok, U = r.unsafe.ok, D = r.def.ok;
+    if (N && !U && !D) {
+      return { level: 'bad', text: '强 Referer 防盗链：无 Referer 时可加载，带 Referer 时被拒 —— 外部网站直接引用会被拦截' };
+    }
+    if (!N && !U && !D) {
+      return { level: 'bad', text: '三种策略均失败：可能被 Referer / UA / Sec-Fetch 类防盗链拦截，或资源本身不可用' };
+    }
+    if (N && U && D) {
+      return { level: 'good', text: '未检测到 Referer 限制' };
+    }
+    if (!N && U && D) {
+      return { level: 'warn', text: '服务端要求携带 Referer（少见）' };
+    }
+    if (N && !U && D) {
+      return { level: 'warn', text: '带完整 URL 的 Referer 被拒，但只带 origin 的 Referer 放行 —— 存在防盗链可能' };
+    }
+    if (!N && !U && D) {
+      return { level: 'warn', text: '仅默认 Referer 策略成功，行为异常，建议人工确认' };
+    }
+    if (N && U && !D) {
+      return { level: 'warn', text: '默认 Referer 策略被拒，但显式指定策略可加载，行为异常' };
+    }
+    return { level: 'muted', text: '结果不一致，需人工确认' };
+  }
+
+  /* ==================== 卡片 UI ==================== */
+  function createCard(url) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML =
+      '<div class="card-head">' +
+        '<div class="u" title="' + esc(url) + '">' + esc(url) + '</div>' +
+        '<span class="badge pending">排队中</span>' +
+      '</div>' +
+      '<div class="card-body">' +
+        '<div class="thumb"><div class="ph">预览</div></div>' +
+        '<div class="rows"></div>' +
+      '</div>';
+    resultsEl.appendChild(card);
+
+    const rowsEl  = card.querySelector('.rows');
+    const thumbEl = card.querySelector('.thumb');
+    const badgeEl = card.querySelector('.badge');
+    const map = Object.create(null);
+
+    return {
+      setBadge(text, cls) {
+        badgeEl.textContent = text;
+        badgeEl.className = 'badge ' + cls;
+      },
+      setRow(key, label, html) {
+        let vEl = map[key];
+        if (!vEl) {
+          const row = document.createElement('div');
+          row.className = 'row';
+          row.innerHTML = '<span class="k">' + label + '</span><span class="v"></span>';
+          rowsEl.appendChild(row);
+          vEl = map[key] = row.querySelector('.v');
+        }
+        vEl.innerHTML = html;
+      },
+      showPreview(src) {
+        thumbEl.innerHTML = '';
+        const im = new Image();
+        im.alt = '';
+        im.src = src;
+        thumbEl.appendChild(im);
+      },
+      failPreview() {
+        thumbEl.innerHTML = '<div class="ph bad">✗</div>';
+      },
+    };
+  }
+
+  /* ==================== 单个链接的完整检测 ==================== */
+  async function analyze(rawUrl, ui, opts) {
+    const timeoutMs = opts.timeoutMs;
+
+    /* ---- 1. URL 解析 ---- */
+    let candidate = rawUrl;
+    if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(candidate) &&
+        !candidate.startsWith('/') &&
+        !candidate.startsWith('./') &&
+        !candidate.startsWith('../')) {
+      candidate = 'https://' + candidate; // 自动补协议，兼容裸域名
+    }
+
+    let u;
+    try {
+      u = new URL(candidate, location.href);
+    } catch (_) {
+      ui.setBadge('无效链接', 'bad');
+      ui.setRow('err', '错误', '<span class="bad">不是合法的 URL</span>');
+      return { ok: false, corsBlocked: false, antiLeechLevel: null };
+    }
+
+    const isHttp  = u.protocol === 'http:' || u.protocol === 'https:';
+    const testUrl = (isHttp && opts.noCache) ? withCacheBust(u.href) : u.href;
+    const notes = [];
+
+    /* ---- 2. 图片能否加载 ---- */
+    ui.setBadge('加载中…', 'pending');
+    let load = await loadImage(testUrl, timeoutMs, {});
+
+    // 绕过缓存失败了，再用原始地址试一次（有些服务端对额外查询参数敏感）
+    if (!load.ok && testUrl !== u.href) {
+      const retry = await loadImage(u.href, timeoutMs, {});
+      if (retry.ok) {
+        load = retry;
+        notes.push('加缓存参数后加载失败、去掉后成功 —— 该服务端可能对查询参数敏感');
+      }
+    }
+
+    if (load.ok) {
+      ui.showPreview(testUrl);
+      ui.setRow('load', '加载', '<span class="good">✓ 成功</span> <span class="muted">' + fmtMs(load.ms) + '</span>');
+      ui.setRow('dims', '尺寸', load.img.naturalWidth + ' × ' + load.img.naturalHeight + ' px');
+      if (u.protocol === 'http:') notes.push('使用的是 http:// 协议，HTTPS 页面中会被混合内容策略拦截');
+    } else {
+      ui.failPreview();
+      ui.setRow('load', '加载', '<span class="bad">✗ 失败</span> <span class="muted">' +
+        esc(load.err || '') + ' · ' + fmtMs(load.ms) + '</span>');
+    }
+
+    /* ---- 3. CORS / 网络探测 ---- */
+    let cors = null;
+    let corsImg = null;
+    let corsBlocked = false;
+
+    if (isHttp) {
+      const [c, ci] = await Promise.all([
+        fetchCors(testUrl, timeoutMs, opts.noCache),
+        loadImage(testUrl, timeoutMs, { crossOrigin: 'anonymous' }),
+      ]);
+      cors = c;
+      corsImg = ci;
+
+      if (cors.ok) {
+        const acao = cors.headers['access-control-allow-origin'];
+        if (cors.httpOk) {
+          ui.setRow('cors', 'CORS', '<span class="good">✓ 允许跨域</span>' +
+            (acao ? ' <span class="muted">ACAO: ' + esc(acao) + '</span>' : ''));
+        } else {
+          ui.setRow('cors', 'CORS', '<span class="warn">⚠ 可跨域读取，但 HTTP 状态异常</span>' +
+            ' <span class="muted">HTTP ' + cors.status + '</span>');
+          notes.push('HTTP 状态码为 ' + cors.status + '，资源可能不存在、需要鉴权或被防盗链拦截');
+        }
+      } else {
+        corsBlocked = true;
+        ui.setRow('cors', 'CORS', '<span class="bad">✗ 被拦截</span> <span class="muted">' +
+          esc(cors.error || '') + '</span>');
+
+        if (load.ok) {
+          notes.push('图片可以正常显示（<img> 不受 CORS 限制），但 JS 无法读取响应内容、无法绘制到 canvas');
+        } else {
+          const probe = await probeNoCors(testUrl, timeoutMs);
+          if (probe.ok) notes.push('网络可访问，但 CORS 校验未通过（或资源返回了错误状态）');
+        }
+      }
+
+      if (corsImg) {
+        if (corsImg.ok) {
+          ui.setRow('corsimg', '跨域图片', '<span class="good">✓ 可绘制到 canvas</span>');
+        } else {
+          ui.setRow('corsimg', '跨域图片', '<span class="bad">✗ 不可绘制</span> <span class="muted">crossOrigin 加载失败</span>');
+        }
+      }
+
+      /* ---- 4. 响应头 / 大小 / 速度 ---- */
+      if (cors && cors.ok) {
+        const h = cors.headers;
+
+        if (h['content-type']) {
+          ui.setRow('type', '类型', '<code>' + esc(h['content-type']) + '</code>');
+        }
+
+        let bytes = cors.size;
+        if (bytes == null && h['content-length']) bytes = Number(h['content-length']);
+        if (bytes) {
+          ui.setRow('bytes', '大小', fmtBytes(bytes));
+          ui.setRow('speed', '速度', speedText(bytes, cors.ms) + ' <span class="muted">平均</span>');
+        }
+
+        if (h['cache-control']) {
+          ui.setRow('cache', '缓存', '<code>' + esc(h['cache-control']) + '</code>');
+        }
+
+        if (cors.finalUrl && cors.finalUrl !== testUrl) {
+          ui.setRow('final', '重定向', '<span class="muted">' + esc(cors.finalUrl) + '</span>');
+        }
+
+        const entries = Object.entries(h);
+        if (entries.length) {
+          ui.setRow('headers', '响应头',
+            '<details><summary>展开 ' + entries.length + ' 项</summary><div class="hlist">' +
+            entries.map(([k, v]) => '<div><b>' + esc(k) + '</b>: ' + esc(v) + '</div>').join('') +
+            '</div></details>');
+        }
+      }
+
+      /* ---- 5. 网络分段计时 ---- */
+      const t = getTiming(testUrl) || getTiming(u.href);
+      if (t && t.duration > 0) {
+        const dns  = t.domainLookupEnd - t.domainLookupStart;
+        const conn = t.connectEnd - t.connectStart;
+        const ttfb = t.responseStart - t.requestStart;
+        const dl   = t.responseEnd - t.responseStart;
+        const parts = [];
+        if (dns > 0)  parts.push('DNS ' + Math.round(dns) + 'ms');
+        if (conn > 0) parts.push('连接 ' + Math.round(conn) + 'ms');
+        if (ttfb > 0) parts.push('TTFB ' + Math.round(ttfb) + 'ms');
+        if (dl > 0)   parts.push('下载 ' + Math.round(dl) + 'ms');
+        parts.push('总计 ' + Math.round(t.duration) + 'ms');
+        ui.setRow('timing', '网络计时', parts.join(' · '));
+        if (t.transferSize === 0) {
+          notes.push('未暴露传输字节数（跨域资源需服务端返回 Timing-Allow-Origin）');
+        }
+      }
+    } else {
+      ui.setRow('cors', 'CORS', '<span class="muted">不适用（' + esc(u.protocol) + '）</span>');
+    }
+
+    /* ---- 6. 防盗链探测 ---- */
+    let antiLeechLevel = null;
+    if (isHttp && opts.antiLeech) {
+      ui.setRow('al', '防盗链', '<span class="muted">探测中…</span>');
+      const r = await probeAntiLeech(u.href, timeoutMs);
+      const diag = diagnoseAntiLeech(r);
+      antiLeechLevel = diag.level;
+
+      const dot = (ok, label) =>
+        '<span class="' + (ok ? 'good' : 'bad') + '">' + (ok ? '✓' : '✗') + ' ' + label + '</span>';
+      ui.setRow('al', '防盗链',
+        dot(r.noRef.ok, '无Referer') + ' · ' +
+        dot(r.unsafe.ok, '带Referer') + ' · ' +
+        dot(r.def.ok, '默认'));
+      ui.setRow('aldiag', '诊断', '<span class="' + diag.level + '">' + diag.text + '</span>');
+
+      if (diag.level === 'bad') {
+        notes.push('检测到 Referer 防盗链。解决方法：① 给 <img> 加 referrerpolicy="no-referrer" 试试；② 使用反向代理伪装 Referer；③ 直接把图片下载到自己的项目里（最稳妥）。');
+      }
+      if (!isHttpPage) {
+        notes.push('当前页面非 http(s) 环境，无法准确模拟 Referer，防盗链结论仅供参考。');
+      }
+    }
+
+    /* ---- 7. 提示 & 徽章 ---- */
+    if (notes.length) {
+      ui.setRow('notes', '提示',
+        '<ul class="notes">' + notes.map((n) => '<li>' + esc(n) + '</li>').join('') + '</ul>');
+    }
+
+    if (load.ok) {
+      if (antiLeechLevel === 'bad') ui.setBadge('⚠ 防盗链', 'warn');
+      else if (corsBlocked) ui.setBadge('⚠ CORS 受限', 'warn');
+      else ui.setBadge('✓ 正常', 'good');
+    } else {
+      ui.setBadge('✗ 加载失败', 'bad');
+    }
+
+    return { ok: load.ok, corsBlocked, antiLeechLevel };
+  }
+
+  /* ==================== 批量执行 ==================== */
+  async function run() {
+    if (running) return;
+
+    const urls = inputEl.value.split('\n').map((s) => s.trim()).filter(Boolean);
+    if (!urls.length) { inputEl.focus(); return; }
+
+    running = true;
+    runBtn.disabled = true;
+    runBtn.textContent = '检测中…';
+    resultsEl.innerHTML = '';
+    summaryEl.hidden = true;
+
+    const opts = {
+      timeoutMs: Math.min(120, Math.max(1, Number(timeoutEl.value) || 15)) * 1000,
+      noCache: noCacheEl.checked,
+      antiLeech: antiLeechEl.checked,
+    };
+
+    const t0 = performance.now();
+    const cards = urls.map((u) => createCard(u));
+    const results = new Array(urls.length).fill(null);
+
+    let next = 0;
+    async function worker() {
+      while (true) {
+        const i = next++;
+        if (i >= urls.length) return;
+        try {
+          results[i] = await analyze(urls[i], cards[i], opts);
+        } catch (e) {
+          cards[i].setBadge('异常', 'bad');
+          cards[i].setRow('err', '错误', '<span class="bad">' + esc(e.message || e) + '</span>');
+          results[i] = { ok: false, corsBlocked: false, antiLeechLevel: null };
+        }
+      }
+    }
+
+    await Promise.all(
+      Array.from({ length: Math.min(MAX_CONCURRENCY, urls.length) }, () => worker())
+    );
+
+    const totalMs = performance.now() - t0;
+    const okCount = results.filter((r) => r && r.ok).length;
+    const corsBlockedCount = results.filter((r) => r && r.ok && r.corsBlocked).length;
+    const antiLeechCount = results.filter((r) => r && r.antiLeechLevel === 'bad').length;
+
+    summaryEl.hidden = false;
+    summaryEl.innerHTML =
+      '共 <b>' + urls.length + '</b> 个链接 · ' +
+      '<span class="good">可加载 ' + okCount + '</span> · ' +
+      '<span class="bad">失败 ' + (urls.length - okCount) + '</span> · ' +
+      'CORS 受限 ' + corsBlockedCount + ' · ' +
+      '防盗链嫌疑 <span class="' + (antiLeechCount ? 'warn' : 'muted') + '">' + antiLeechCount + '</span> · ' +
+      '总耗时 ' + (totalMs / 1000).toFixed(1) + 's';
+
+    running = false;
+    runBtn.disabled = false;
+    runBtn.textContent = '开始检测';
+  }
+
+  /* ==================== 事件绑定 ==================== */
+  const updateCount = () => {
+    const n = inputEl.value.split('\n').map((s) => s.trim()).filter(Boolean).length;
+    countEl.textContent = n;
+  };
+
+  inputEl.addEventListener('input', updateCount);
+
+  inputEl.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      run();
+    }
+  });
+
+  runBtn.addEventListener('click', run);
+
+  clearBtn.addEventListener('click', () => {
+    inputEl.value = '';
+    resultsEl.innerHTML = '';
+    summaryEl.hidden = true;
+    updateCount();
+    inputEl.focus();
+  });
+
+  updateCount();
+})();
+</script>
+</body>
+</html>
