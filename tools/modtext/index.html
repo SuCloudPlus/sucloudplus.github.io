@@ -14,11 +14,15 @@
             // 面板位置: 'top' | 'bottom' | 'left' | 'right'
             panelPosition: "right", 
             
-            // 默认背景图路径 (留空则显示纯色)
-            bgImageUrl: "src/bg01.jpg", 
+            // 🌟 主背景图路径（优先加载）
+            bgImageUrl: "https://img.remit.ee/i/qnXw06OdD9ZQ", 
             
-            // 预设的背景图列表（模拟文件夹）
+            // 🌟 备用背景图路径（主图加载失败时自动使用）
+            bgFallbackUrl: "src/bg01.jpg",
+            
+            // 预设的背景图列表
             bgImageFolder: [
+              "https://img.remit.ee/i/qnXw06OdD9ZQ",
               "src/bg01.jpg"
             ],
 
@@ -104,7 +108,6 @@
             position: relative;
             width: 100%;
             max-width: 1067px;
-            /* 移除固定宽高比，由 JS 根据图片动态设置 */
             background-color: #E2F0FF; 
             box-shadow: 0 8px 24px rgba(0,0,0,0.15);
             display: flex;
@@ -195,10 +198,9 @@
 <body>
 
     <div class="preview-area">
-        <!-- 清理了多余的嵌套结构 -->
         <div id="capture-container">
-            <!-- object-fit: fill 配合 JS 动态计算的宽高比，保证铺满且不留白边 -->
-            <img id="bg-img" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0; pointer-events: none;" />
+            <!-- 增加 crossorigin="anonymous" 尽可能允许跨域导出 -->
+            <img id="bg-img" crossorigin="anonymous" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0; pointer-events: none;" />
             <div id="text-area"></div>
         </div>
     </div>
@@ -336,7 +338,7 @@
 
         const els = {
             container: document.getElementById('capture-container'),
-            bgImg: document.getElementById('bg-img'), // 获取 img 标签
+            bgImg: document.getElementById('bg-img'),
             textArea: document.getElementById('text-area'),
             textInput: document.getElementById('text-input'),
             fontFamily: document.getElementById('font-family'),
@@ -422,24 +424,45 @@
                     img.onclick = () => {
                         document.querySelectorAll('.image-thumb').forEach(el => el.classList.remove('active'));
                         img.classList.add('active');
-                        setBackground(url);
+                        // 判断当前点击的是否是主图，如果是，则绑定备用图
+                        let fallback = (url === CONFIG.bgImageUrl) ? CONFIG.bgFallbackUrl : null;
+                        setBackground(url, fallback);
                     };
                     els.imageList.appendChild(img);
                 });
             }
 
             if (defaultBgToLoad) {
-                setBackground(defaultBgToLoad);
+                // 初始化时，如果加载的是主图，带上备用图逻辑
+                let fallback = (defaultBgToLoad === CONFIG.bgImageUrl) ? CONFIG.bgFallbackUrl : null;
+                setBackground(defaultBgToLoad, fallback);
             }
 
             render();
         }
 
-        function setBackground(url) {
+        // 🌟 升级版 setBackground，带失败自动重试 (fallback)
+        function setBackground(url, fallbackUrl) {
             els.bgImg.src = url;
+            
             els.bgImg.onload = () => {
                 // 调整容器的长宽比，使其与图片完全一致
                 els.container.style.aspectRatio = `${els.bgImg.naturalWidth} / ${els.bgImg.naturalHeight}`;
+            };
+            
+            els.bgImg.onerror = () => {
+                // 防止死循环，只有在 fallbackUrl 存在且不等于当前 url 时才重试
+                if (fallbackUrl && url !== fallbackUrl) {
+                    console.warn(`图床加载失败 (${url})，自动切换到备用图 (${fallbackUrl})...`);
+                    // 自动把激活状态也切到备用图
+                    document.querySelectorAll('.image-thumb').forEach(el => {
+                        if(el.src === fallbackUrl) el.classList.add('active');
+                        else el.classList.remove('active');
+                    });
+                    setBackground(fallbackUrl, null);
+                } else {
+                    console.error(`图片加载彻底失败: ${url}`);
+                }
             };
         }
 
@@ -565,9 +588,7 @@
         ];
         inputs.forEach(el => el.addEventListener('input', render));
 
-        // 修复导出逻辑
         els.exportBtn.addEventListener('click', () => {
-            // 检查 img 标签是否有 src，而不是检查 CSS 背景
             if (!els.bgImg.src) {
                 alert('提示：你还没有加载背景图片，导出的图片将只有透明/默认底色！');
             }
@@ -593,7 +614,7 @@
                 els.exportBtn.disabled = false;
             }).catch(err => {
                 console.error('导出失败:', err);
-                alert('导出失败，请重试。');
+                alert('导出失败，可能是图床不支持跨域导出。建议点击【自定义上传背景】选择本地图片后再导出。');
                 els.exportBtn.innerText = originalText;
                 els.exportBtn.disabled = false;
             });
