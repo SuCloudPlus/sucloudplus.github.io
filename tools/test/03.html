@@ -24,7 +24,6 @@ body {
     color: #333;
 }
 
-/* 布局控制 */
 body.layout-bottom { flex-direction: column; }
 body.layout-top { flex-direction: column-reverse; }
 body.layout-left { flex-direction: row-reverse; }
@@ -43,15 +42,11 @@ body.layout-right { flex-direction: row; }
     min-height: 0;
 }
 
-#stage {
-    position: relative;
-    flex: 0 0 auto;
-}
+#stage { position: relative; flex: 0 0 auto; }
 
 #capture-container {
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 0; left: 0;
     transform-origin: 0 0;
     overflow: hidden;
     box-shadow: 0 8px 24px rgba(0,0,0,0.15);
@@ -59,13 +54,11 @@ body.layout-right { flex-direction: row; }
 }
 
 #preview-canvas { display: block; }
-
 #bg-img { display: none; }
 
 .overflow-tip {
     position: absolute;
-    left: 50%;
-    bottom: 14px;
+    left: 50%; bottom: 14px;
     transform: translateX(-50%);
     display: none;
     background: rgba(231, 76, 60, 0.95);
@@ -194,7 +187,6 @@ button.primary {
 button.primary:hover { background: #27AE60; }
 button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
-/* 字号快速选择按钮 */
 .font-size-presets {
     display: flex;
     flex-wrap: nowrap;
@@ -203,8 +195,6 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 .font-size-presets > * {
     flex: 1 1 0;
     min-width: 0;
-    overflow: visible;
-    text-overflow: clip;
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -232,8 +222,7 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
 .image-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
 .image-thumb {
-    width: 50px;
-    height: 50px;
+    width: 50px; height: 50px;
     object-fit: cover;
     border-radius: 4px;
     cursor: pointer;
@@ -243,7 +232,6 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 .image-thumb:hover { border-color: #5A9BE0; }
 .image-thumb.active { border-color: #2ECC71; }
 
-/* 字数配置命中提示 */
 .preset-info {
     font-size: 11px;
     color: #8a94a0;
@@ -253,13 +241,12 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 }
 .preset-info.hit { color: #2ECC71; font-weight: bold; }
 
-/* 🌟 模式切换 + 同字数多方案切换：同一行，恒定占位不跳动 */
 .switch-bar {
     display: flex;
     align-items: center;
     gap: 6px;
     margin-top: 4px;
-    min-height: 26px;          /* 恒定行高，防止排版跳动 */
+    min-height: 26px;
     flex-wrap: nowrap;
     overflow-x: auto;
     overflow-y: hidden;
@@ -296,8 +283,6 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     border-color: #2ECC71;
     font-weight: bold;
 }
-
-/* 模式按钮用蓝色系区分 */
 .variant-btn.mode-btn.active {
     background: #5A9BE0;
     border-color: #5A9BE0;
@@ -321,11 +306,9 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     <div class="panel-section">
         <h3>1. 内容与背景</h3>
         <div class="form-group">
-            <label>输入文字 <button id="to-fullwidth" class="small" type="button">转全角</button></label>
+            <label>输入文字 <button id="toggle-width" class="small" type="button">转全角</button></label>
             <textarea id="text-input">乘风破浪</textarea>
             <div class="preset-info" id="preset-info"></div>
-
-            <!-- 🌟 模式切换 + 方案切换，恒定同一行 -->
             <div class="switch-bar">
                 <div class="mode-bar" id="mode-bar"></div>
                 <div class="variant-bar" id="variant-bar"></div>
@@ -367,12 +350,10 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
     <div class="panel-section">
         <h3>3. 参数调节</h3>
-
         <div class="form-group">
             <label>字号快速选择</label>
             <div class="font-size-presets" id="font-size-presets"></div>
         </div>
-
         <div class="form-group">
             <label>字号大小: <span id="font-size-val">110</span> px</label>
             <input type="range" id="font-size" min="16" max="250">
@@ -425,7 +406,6 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     </div>
 </div>
 
-<!-- 背景图加载器（隐藏） -->
 <img id="bg-img" alt="">
 
 <script>
@@ -433,7 +413,7 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
    常量与状态
    ========================================================= */
 const PREVIEW_DPR     = Math.min(2, window.devicePixelRatio || 1);
-const MAX_CANVAS_AREA = 16000000;          // 约 16MP
+const MAX_CANVAS_AREA = 16000000;
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
 
 let logicalW = CONFIG.logicalWidth;
@@ -442,20 +422,13 @@ let logicalH = Math.round(CONFIG.logicalWidth * 9 / 16);
 let previewCtx = null;
 let rafPending = false;
 
-/** 字体加载结果：name -> true(成功) / false(失败) */
 const fontStatus = new Map();
-
-/** 🌟 同字数多方案：记住每个预设 key 下选中的方案索引 */
 const variantSelections = new Map();
-
-/** 🌟 当前配置模式：'grid'（田字格） | 'free'（自由） */
 let currentMode = CONFIG.defaultMode || 'grid';
 
 /* =========================================================
-   参数合并：内部硬兜底 → 自由配置 → 田字格配置 → 字数方案
+   硬兜底默认值
    ========================================================= */
-
-/** 代码内部硬兜底（配置文件缺字段时保命） */
 const HARD_DEFAULTS = {
     textColor    : '#000000',
     lineColor    : '#888888',
@@ -476,12 +449,9 @@ const HARD_DEFAULTS = {
     strike       : false
 };
 
-/** 参与合并的全部参数名（font 仅当字数配置中显式给出时才覆盖） */
 const PARAM_KEYS = Object.keys(HARD_DEFAULTS).concat('font');
 
-/** 当前生效的"每行字数" */
 let currentCharsPerLine = 0;
-/** 上一次应用的配置标识（模式 + key + 变体索引） */
 let lastAppliedKey = undefined;
 
 /* =========================================================
@@ -499,7 +469,7 @@ const els = {
     presetInfo  : document.getElementById('preset-info'),
     modeBar     : document.getElementById('mode-bar'),
     variantBar  : document.getElementById('variant-bar'),
-    toFullwidth : document.getElementById('to-fullwidth'),
+    toggleWidth : document.getElementById('toggle-width'),
     bgUpload    : document.getElementById('bg-upload'),
     bgListBox   : document.getElementById('bg-list-container'),
     imageList   : document.getElementById('image-list'),
@@ -538,15 +508,32 @@ const els = {
 };
 
 /* =========================================================
+   字符宽度判断
+   ========================================================= */
+/** 半角字符：ASCII 0x20 ~ 0x7E */
+function isHalfWidthChar(ch) {
+    if (!ch) return false;
+    const code = ch.charCodeAt(0);
+    return code >= 0x20 && code <= 0x7E;
+}
+
+/** 是否包含全角 ASCII 字符（用于切换按钮文字） */
+function isFullWidthString(text) {
+    for (let i = 0; i < text.length; i++) {
+        const code = text.charCodeAt(i);
+        if (code === 0x3000) return true;                    // 全角空格
+        if (code >= 0xFF01 && code <= 0xFF5E) return true;   // 全角 ASCII
+    }
+    return false;
+}
+
+/* =========================================================
    按字数配置：解析与合并
    ========================================================= */
-
-/** 统计字数：忽略换行符 */
 function countTextChars(text) {
     return String(text).replace(/[\r\n]/g, '').length;
 }
 
-/** 区间 key 归一化 */
 function normalizeRangeKey(key) {
     return String(key)
         .replace(/\s+/g, '')
@@ -554,7 +541,6 @@ function normalizeRangeKey(key) {
         .replace(/＋/g, '+');
 }
 
-/** 判断某个区间 key 是否匹配该字数 */
 function matchRangeKey(key, count) {
     const k = normalizeRangeKey(key);
     let m;
@@ -564,7 +550,6 @@ function matchRangeKey(key, count) {
     return false;
 }
 
-/** 找出该字数命中的配置 key（精确匹配优先，其次区间匹配） */
 function resolvePresetKey(count) {
     const presets = CONFIG.lengthPresets || {};
     const keys = Object.keys(presets);
@@ -580,7 +565,6 @@ function resolvePresetKey(count) {
     return null;
 }
 
-/** 取某个 key 下的所有方案（统一返回数组） */
 function getVariantsForKey(key) {
     if (key === null) return [];
     const presets = CONFIG.lengthPresets || {};
@@ -590,7 +574,6 @@ function getVariantsForKey(key) {
     return Array.isArray(v) ? v : [v];
 }
 
-/** 取当前 key 下应使用的方案索引（带记忆 + 越界保护） */
 function getVariantIndex(key, count) {
     if (count <= 1) return 0;
     const saved = variantSelections.get(key);
@@ -598,7 +581,6 @@ function getVariantIndex(key, count) {
     return 0;
 }
 
-/** 取模式名 */
 function getModeName(modeKey) {
     const list = CONFIG.modes || [];
     const hit = list.find(m => m.key === modeKey);
@@ -606,9 +588,9 @@ function getModeName(modeKey) {
 }
 
 /**
- * 🌟 取当前模式的基础参数（兜底层）
- *   free → HARD_DEFAULTS + freeConfig
- *   grid → HARD_DEFAULTS + freeConfig + gridConfig（田字格仍由自由配置兜底）
+ * 构建基础参数层：
+ *   free 模式：HARD_DEFAULTS + freeConfig
+ *   grid 模式：HARD_DEFAULTS + freeConfig + gridConfig（田字格由自由配置兜底）
  */
 function getBaseParams(mode) {
     const out = Object.assign({}, HARD_DEFAULTS, CONFIG.freeConfig || {});
@@ -618,29 +600,33 @@ function getBaseParams(mode) {
     return out;
 }
 
-/** 合并：字数方案 > 模式配置（田字格/自由） > 自由配置 > 硬兜底 */
+/**
+ * 合并参数
+ * 优先级：字数方案 > 模式配置（gridConfig / freeConfig）> 硬兜底
+ * ✅ 修复关键：preset 中只要写了某字段，就一定优先于模式配置
+ */
 function mergeParams(preset, mode) {
     const base = getBaseParams(mode);
-    const out = {};
+    if (!preset) return base;
+
+    const out = Object.assign({}, base);
     for (let i = 0; i < PARAM_KEYS.length; i++) {
         const k = PARAM_KEYS[i];
-        const v = preset ? preset[k] : undefined;
-        out[k] = (v !== undefined) ? v : base[k];
+        if (preset[k] !== undefined) {
+            out[k] = preset[k];
+        }
     }
     return out;
 }
 
-/** 根据字数方案计算每行字数（显式 charsPerLine 优先，其次 rows 自动推算） */
 function resolveCharsPerLine(text, preset) {
     if (!preset) return 0;
 
-    // 1) 显式 charsPerLine（0 表示不自动换行）
     if (preset.charsPerLine !== undefined && preset.charsPerLine !== null && preset.charsPerLine !== '') {
         const cpl = Number(preset.charsPerLine);
         if (!isNaN(cpl)) return cpl > 0 ? Math.floor(cpl) : 0;
     }
 
-    // 2) rows 自动推算：ceil(字数 / rows)
     if (preset.rows !== undefined && preset.rows !== null) {
         const rows = Number(preset.rows);
         if (!isNaN(rows) && rows > 0) {
@@ -648,11 +634,9 @@ function resolveCharsPerLine(text, preset) {
             if (n > 0) return Math.ceil(n / rows);
         }
     }
-
     return 0;
 }
 
-/** 把合并后的参数写回界面控件 */
 function applyParamsToUI(p) {
     els.textColor.value    = p.textColor;
     els.lineColor.value    = p.lineColor;
@@ -672,7 +656,6 @@ function applyParamsToUI(p) {
     els.styleBold.checked   = !!p.bold;
     els.styleStrike.checked = !!p.strike;
 
-    // 字体只在字数配置里显式写过时才覆盖
     if (p.font) {
         const exists = Array.from(els.fontFamily.options).some(o => o.value === p.font);
         if (exists) els.fontFamily.value = p.font;
@@ -681,7 +664,6 @@ function applyParamsToUI(p) {
     updatePresetActive(els.fontSize.value);
 }
 
-/** 更新"字数配置命中"提示 */
 function updatePresetInfo(count, key, preset, idx, total) {
     const box = els.presetInfo;
     if (!box) return;
@@ -700,12 +682,8 @@ function updatePresetInfo(count, key, preset, idx, total) {
     box.textContent = `共 ${count} 字 · ${modeName} · 命中配置「${key}」· ${name}${idxLabel}`;
 }
 
-/**
- * 🌟 构建「配置模式切换」+「同字数多方案切换」按钮
- *    两者放在同一行（.switch-bar），模式按钮恒定存在，排版不跳动
- */
 function buildSwitchButtons(variants, currentIdx, key) {
-    /* ---- 模式按钮（恒定渲染） ---- */
+    /* ---- 模式按钮 ---- */
     const modeBox = els.modeBar;
     if (modeBox) {
         modeBox.innerHTML = '';
@@ -722,7 +700,7 @@ function buildSwitchButtons(variants, currentIdx, key) {
             btn.addEventListener('click', () => {
                 if (currentMode === m.key) return;
                 currentMode = m.key;
-                syncParamsFromText(true);   // 强制把新模式的参数写回界面
+                syncParamsFromText(true);
                 scheduleRender();
             });
             modeBox.appendChild(btn);
@@ -732,13 +710,9 @@ function buildSwitchButtons(variants, currentIdx, key) {
     /* ---- 同字数多方案按钮 ---- */
     const box = els.variantBar;
     if (!box) return;
-
     box.innerHTML = '';
 
-    if (variants.length <= 1) {
-        // 没有可选方案时保持空容器（行高由模式按钮撑起，不跳动）
-        return;
-    }
+    if (variants.length <= 1) return;
 
     variants.forEach((v, i) => {
         const btn = document.createElement('button');
@@ -754,11 +728,6 @@ function buildSwitchButtons(variants, currentIdx, key) {
     });
 }
 
-/**
- * 根据当前文字内容解析配置。
- * - 命中方案 / 模式变化（或 force）时把参数写回界面
- * - charsPerLine 每次都刷新
- */
 function syncParamsFromText(force) {
     const text  = els.textInput.value;
     const count = countTextChars(text);
@@ -768,9 +737,9 @@ function syncParamsFromText(force) {
     const idx      = getVariantIndex(key, variants.length);
     const preset   = variants.length > 0 ? variants[idx] : null;
 
-    // 每行字数（每次刷新，保证自动排版跟随字数）
     currentCharsPerLine = resolveCharsPerLine(text, preset);
 
+    // ✅ 合并：字数方案优先，模式配置仅作为兜底
     const merged = mergeParams(preset, currentMode);
 
     const uiKey = `${currentMode}|${key === null ? 'default' : key}#${idx}`;
@@ -784,11 +753,6 @@ function syncParamsFromText(force) {
     return merged;
 }
 
-/**
- * 自动换行：
- *   1) 先按回车分行
- *   2) charsPerLine > 0 时，再对每一行按每行字数切分
- */
 function layoutLines(text, charsPerLine) {
     const lines = String(text).split(/\r?\n/);
     const cpl = Math.floor(Number(charsPerLine)) || 0;
@@ -812,10 +776,8 @@ async function loadFontCSS(main, fallback) {
     const tryLoad = async (url) => {
         const res = await fetch(url, { method: 'GET', mode: 'cors' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
-
         const cssText = await res.text();
         const baseUrl = url.replace(/[^/]*\.css$/, '');
-
         const rewritten = cssText.replace(
             /url\(\s*(['"]?)([^'")]+)\1\s*\)/g,
             (match, quote, u) => {
@@ -823,7 +785,6 @@ async function loadFontCSS(main, fallback) {
                 return `url("${baseUrl}${u.replace(/^\.\//, '')}")`;
             }
         );
-
         const style = document.createElement('style');
         style.textContent = rewritten;
         document.head.appendChild(style);
@@ -835,13 +796,8 @@ async function loadFontCSS(main, fallback) {
     } catch (e) {
         console.warn('主字体加载失败:', main, e);
         if (fallback) {
-            try {
-                await tryLoad(fallback);
-                return true;
-            } catch (e2) {
-                console.error('备用字体加载失败:', fallback, e2);
-                return false;
-            }
+            try { await tryLoad(fallback); return true; }
+            catch (e2) { console.error('备用字体加载失败:', fallback, e2); return false; }
         }
         return false;
     }
@@ -853,13 +809,9 @@ async function loadAllOnlineFonts() {
         const ok = await loadFontCSS(f.mainCss, f.fallbackCss);
         fontStatus.set(f.name, ok);
     }));
-
     await Promise.all(CONFIG.availableFonts.map(name =>
-        document.fonts
-            ? document.fonts.load(`16px "${name}"`).catch(() => {})
-            : Promise.resolve()
+        document.fonts ? document.fonts.load(`16px "${name}"`).catch(() => {}) : Promise.resolve()
     ));
-
     if (document.fonts && document.fonts.ready) {
         try { await document.fonts.ready; } catch (_) {}
     }
@@ -886,7 +838,6 @@ function updateCanvasSize() {
 
     els.canvas.style.width  = logicalW + 'px';
     els.canvas.style.height = logicalH + 'px';
-
     els.container.style.width  = logicalW + 'px';
     els.container.style.height = logicalH + 'px';
 
@@ -895,16 +846,13 @@ function updateCanvasSize() {
 
 function fitStage() {
     if (!logicalW || !logicalH) return;
-
     const pad = 40;
     const availW = Math.max(50, els.previewArea.clientWidth  - pad);
     const availH = Math.max(50, els.previewArea.clientHeight - pad);
-
     const scale = Math.min(availW / logicalW, availH / logicalH, 1);
 
     els.stage.style.width  = (logicalW * scale) + 'px';
     els.stage.style.height = (logicalH * scale) + 'px';
-
     els.container.style.transform = `scale(${scale})`;
 }
 
@@ -947,13 +895,12 @@ function updateLabels(p) {
 }
 
 /* =========================================================
-   核心绘制
+   核心绘制 —— 支持半角字符半宽渲染
    ========================================================= */
 function drawScene(ctx, W, H, p) {
     ctx.save();
     ctx.clearRect(0, 0, W, H);
 
-    // 背景
     if (els.bgImg.complete && els.bgImg.naturalWidth > 0) {
         ctx.drawImage(els.bgImg, 0, 0, W, H);
     } else {
@@ -961,23 +908,29 @@ function drawScene(ctx, W, H, p) {
         ctx.fillRect(0, 0, W, H);
     }
 
-    // 布局
-    const boxSize  = p.size / p.ratio;
-    const colStep  = boxSize + p.colGap;
+    const boxSize  = p.size / p.ratio;   // 全角字符格子宽高
+    const halfBoxW = boxSize / 2;        // 半角字符格子宽
     const lineStep = boxSize + p.lineGap;
+    const halfH    = boxSize / 2;
 
-    // 自动换行
-    const lines  = layoutLines(p.text, p.charsPerLine);
-    const maxLen = lines.reduce((m, l) => Math.max(m, l.length), 0);
+    const lines = layoutLines(p.text, p.charsPerLine);
 
-    const totalW = maxLen > 0 ? maxLen * boxSize + (maxLen - 1) * p.colGap : 0;
+    // 每行宽度（半角算一半）
+    const lineWidths = lines.map(line => {
+        let w = 0;
+        for (let i = 0; i < line.length; i++) {
+            w += isHalfWidthChar(line[i]) ? halfBoxW : boxSize;
+            if (i < line.length - 1) w += p.colGap;
+        }
+        return w;
+    });
+    const maxLen = lineWidths.length > 0 ? Math.max(...lineWidths) : 0;
+
     const totalH = lines.length > 0
         ? lines.length * boxSize + (lines.length - 1) * p.lineGap
         : 0;
 
-    // 整体上下居中调节
     const startY = (H - totalH) / 2 + p.blockOffsetY;
-    const half   = boxSize / 2;
 
     const fontStr =
         `${p.italic ? 'italic ' : ''}${p.bold ? 'bold ' : ''}` +
@@ -987,49 +940,62 @@ function drawScene(ctx, W, H, p) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // 逐行逐字绘制
     for (let r = 0; r < lines.length; r++) {
         const line = lines[r];
         if (line.length === 0) continue;
 
-        const lineW = line.length * boxSize + (line.length - 1) * p.colGap;
-        const lineX = (W - lineW) / 2;
-        const y     = startY + r * lineStep;
+        const lineW = lineWidths[r];
+        let x = (W - lineW) / 2;
+        const y = startY + r * lineStep;
 
         for (let c = 0; c < line.length; c++) {
             const ch = line[c];
-            const x  = lineX + c * colStep;
+            const isHalf = isHalfWidthChar(ch);
+            const charW = isHalf ? halfBoxW : boxSize;
 
-            if (ch === ' ' || ch === '　' || ch === '\t' || ch === '\u00A0') continue;
+            // 空格占位不画
+            if (ch === ' ' || ch === '　' || ch === '\t' || ch === '\u00A0') {
+                x += charW + p.colGap;
+                continue;
+            }
 
             // 外框
             if (p.grid && p.borderWidth > 0) {
                 ctx.strokeStyle = p.lineColor;
                 ctx.lineWidth   = p.borderWidth;
-                ctx.strokeRect(x, y, boxSize, boxSize);
+                ctx.strokeRect(x, y, charW, boxSize);
             }
 
-            // 内虚线
+            // 内虚线（田字格）
             if (p.grid && p.dashWidth > 0 && p.dashDensity > 0) {
                 ctx.save();
                 ctx.strokeStyle = p.lineColor;
                 ctx.lineWidth   = p.dashWidth;
                 ctx.setLineDash([p.dashDensity, p.dashDensity]);
 
-                const cx = x + half;
-                const cy = y + half;
+                const cx = x + charW / 2;
+                const cy = y + halfH;
                 ctx.beginPath();
-                ctx.moveTo(x, cy);              ctx.lineTo(x + boxSize, cy);
-                ctx.moveTo(cx, y);              ctx.lineTo(cx, y + boxSize);
-                ctx.moveTo(x, y);               ctx.lineTo(x + boxSize, y + boxSize);
-                ctx.moveTo(x + boxSize, y);     ctx.lineTo(x, y + boxSize);
+                // 横线
+                ctx.moveTo(x, cy);
+                ctx.lineTo(x + charW, cy);
+                // 竖线
+                ctx.moveTo(cx, y);
+                ctx.lineTo(cx, y + boxSize);
+                // 斜线（仅全角画，半角太窄不画）
+                if (!isHalf) {
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + charW, y + boxSize);
+                    ctx.moveTo(x + charW, y);
+                    ctx.lineTo(x, y + boxSize);
+                }
                 ctx.stroke();
                 ctx.restore();
             }
 
-            // 文字
-            const tx = x + half;
-            const ty = y + half + p.yOffset;
+            // 文字（居中）
+            const tx = x + charW / 2;
+            const ty = y + halfH + p.yOffset;
             ctx.fillStyle = p.textColor;
             ctx.fillText(ch, tx, ty);
 
@@ -1039,13 +1005,15 @@ function drawScene(ctx, W, H, p) {
                 const lh = Math.max(1, p.size * 0.06);
                 ctx.fillRect(tx - tw / 2, ty - lh / 2, tw, lh);
             }
+
+            x += charW + p.colGap;
         }
     }
 
     ctx.restore();
 
     return {
-        overflow: totalW > W + 0.5 || totalH > H + 0.5
+        overflow: maxLen > W + 0.5 || totalH > H + 0.5
     };
 }
 
@@ -1055,12 +1023,10 @@ function drawScene(ctx, W, H, p) {
 function render() {
     const p = readParams();
     updateLabels(p);
-
     if (!previewCtx || !logicalW || !logicalH) return;
 
     previewCtx.setTransform(PREVIEW_DPR, 0, 0, PREVIEW_DPR, 0, 0);
     const { overflow } = drawScene(previewCtx, logicalW, logicalH, p);
-
     els.overflowTip.style.display = overflow ? 'block' : 'none';
 }
 
@@ -1130,6 +1096,43 @@ function updatePresetActive(value) {
 }
 
 /* =========================================================
+   转全角 / 转半角
+   ========================================================= */
+function updateToggleButton() {
+    if (!els.toggleWidth) return;
+    els.toggleWidth.textContent = isFullWidthString(els.textInput.value) ? '转半角' : '转全角';
+}
+
+function toggleFullWidth() {
+    const text = els.textInput.value;
+    const hasFullWidth = isFullWidthString(text);
+    let out = '';
+
+    if (hasFullWidth) {
+        // 全角 → 半角
+        for (let i = 0; i < text.length; i++) {
+            const code = text.charCodeAt(i);
+            if (code === 0x3000) out += ' ';
+            else if (code >= 0xFF01 && code <= 0xFF5E) out += String.fromCharCode(code - 0xFEE0);
+            else out += text[i];
+        }
+    } else {
+        // 半角 → 全角
+        for (let i = 0; i < text.length; i++) {
+            const code = text.charCodeAt(i);
+            if (code === 0x20) out += String.fromCharCode(0x3000);
+            else if (code > 0x20 && code < 0x7F) out += String.fromCharCode(code + 0xFEE0);
+            else out += text[i];
+        }
+    }
+
+    els.textInput.value = out;
+    updateToggleButton();
+    syncParamsFromText(false);
+    scheduleRender();
+}
+
+/* =========================================================
    导出
    ========================================================= */
 function exportImage() {
@@ -1150,184 +1153,4 @@ function exportImage() {
     if (baseArea * scale * scale > MAX_CANVAS_AREA) {
         const limited = Math.sqrt(MAX_CANVAS_AREA / baseArea);
         scale = Math.max(1, Math.floor(limited * 2) / 2);
-        console.warn(`导出倍率已限制为 ${scale}，避免 Canvas 超出浏览器上限`);
-    }
-
-    const outW = Math.round(logicalW * scale);
-    const outH = Math.round(logicalH * scale);
-
-    const canvas = document.createElement('canvas');
-    canvas.width  = outW;
-    canvas.height = outH;
-
-    const ctx = canvas.getContext('2d');
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
-
-    const p = readParams();
-    drawScene(ctx, logicalW, logicalH, p);
-
-    const finish = () => {
-        els.exportBtn.disabled = false;
-        els.exportBtn.textContent = originalText;
-    };
-
-    canvas.toBlob((blob) => {
-        if (!blob) {
-            alert('导出失败，请重试。');
-            finish();
-            return;
-        }
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `文字海报_${Date.now()}.png`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-        finish();
-    }, 'image/png');
-}
-
-/* =========================================================
-   事件绑定
-   ========================================================= */
-function bindEvents() {
-    // 文字变化：先按字数解析配置，再渲染
-    els.textInput.addEventListener('input', () => {
-        syncParamsFromText(false);
-        scheduleRender();
-    });
-
-    // 参数控件 -> rAF 节流渲染
-    const inputs = [
-        els.fontFamily,
-        els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
-        els.textColor, els.lineColor,
-        els.fontSize, els.textRatio, els.colGap, els.lineGap,
-        els.textYOffset, els.blockOffsetY,
-        els.borderWidth, els.dashWidth, els.dashDensity
-    ];
-
-    inputs.forEach(el => {
-        el.addEventListener('input', () => {
-            if (el === els.fontSize) updatePresetActive(el.value);
-            scheduleRender();
-        });
-    });
-
-    // 转全角
-    els.toFullwidth.addEventListener('click', () => {
-        const text = els.textInput.value;
-        let out = '';
-        for (let i = 0; i < text.length; i++) {
-            const code = text.charCodeAt(i);
-            if (code === 32) out += String.fromCharCode(12288);
-            else if (code > 32 && code < 127) out += String.fromCharCode(code + 65248);
-            else out += text[i];
-        }
-        els.textInput.value = out;
-        syncParamsFromText(false);
-        scheduleRender();
-    });
-
-    // 上传背景
-    els.bgUpload.addEventListener('change', (e) => {
-        const file = e.target.files && e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            setBackground(ev.target.result);
-            document.querySelectorAll('.image-thumb')
-                .forEach(el => el.classList.remove('active'));
-        };
-        reader.readAsDataURL(file);
-    });
-
-    els.exportBtn.addEventListener('click', exportImage);
-
-    if (window.ResizeObserver) {
-        new ResizeObserver(() => fitStage()).observe(els.previewArea);
-    } else {
-        window.addEventListener('resize', fitStage);
-    }
-}
-
-/* =========================================================
-   启动
-   ========================================================= */
-async function initApp() {
-    if (typeof CONFIG === 'undefined' || !CONFIG) {
-        alert('配置加载失败：请确认 src/config.js 存在且路径正确。');
-        return;
-    }
-
-    document.body.className = `layout-${CONFIG.panelPosition || 'right'}`;
-
-    // 0. 当前模式
-    currentMode = CONFIG.defaultMode || 'grid';
-
-    // 1. 字体下拉框
-    (CONFIG.availableFonts || []).forEach(font => {
-        const opt = document.createElement('option');
-        opt.value = font;
-        opt.textContent = font;
-        if (font === CONFIG.defaultFont) opt.selected = true;
-        els.fontFamily.appendChild(opt);
-    });
-
-    // 2. 字号快捷按钮
-    buildPresetButtons();
-
-    // 3. 依据当前文字解析配置并应用
-    syncParamsFromText(true);
-
-    // 4. 事件
-    bindEvents();
-
-    // 5. 首屏
-    updateCanvasSize();
-    fitStage();
-    render();
-
-    // 6. 预设背景缩略图
-    let defaultBg = CONFIG.bgImageUrl;
-    if (CONFIG.bgImageFolder && CONFIG.bgImageFolder.length > 0) {
-        els.bgListBox.style.display = 'block';
-        if (!defaultBg) defaultBg = CONFIG.bgImageFolder[0];
-
-        CONFIG.bgImageFolder.forEach(url => {
-            const img = document.createElement('img');
-            img.src = url;
-            img.className = 'image-thumb';
-            img.alt = '';
-            if (url === defaultBg) img.classList.add('active');
-
-            img.onclick = () => {
-                document.querySelectorAll('.image-thumb')
-                    .forEach(el => el.classList.remove('active'));
-                img.classList.add('active');
-                setBackground(url);
-            };
-
-            els.imageList.appendChild(img);
-        });
-    }
-
-    // 7. 背景图
-    if (defaultBg) setBackground(defaultBg);
-
-    // 8. 在线字体
-    loadAllOnlineFonts().then(() => {
-        markFontOptions();
-        render();
-    });
-}
-
-initApp();
-</script>
-</body>
-</html>
+        console.warn(`导出倍率已限制为 ${scale
