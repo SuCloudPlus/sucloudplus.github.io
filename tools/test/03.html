@@ -7,7 +7,7 @@
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 
 <!-- ========================================== -->
-<!-- 🌟 全局默认配置（已分离至 src/config.js） 🌟 -->
+<!-- 🌟 全局配置（独立文件） 🌟 -->
 <!-- ========================================== -->
 <script src="src/config.js"></script>
 
@@ -253,31 +253,27 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 }
 .preset-info.hit { color: #2ECC71; font-weight: bold; }
 
-/* ===================================================================
-   🌟 切换条：【田字格 / 自由】 与 同字数多方案按钮 始终同一行
-       外层常驻，高度固定，避免出现/隐藏时的排版跳动
-   =================================================================== */
+/* 🌟 模式切换 + 同字数多方案切换：同一行，恒定占位不跳动 */
 .switch-bar {
     display: flex;
     align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 2px;
-    min-height: 28px;      /* 常驻高度，防止跳动 */
+    gap: 6px;
+    margin-top: 4px;
+    min-height: 26px;          /* 恒定行高，防止排版跳动 */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
 }
+.switch-bar::-webkit-scrollbar { height: 4px; }
+.switch-bar::-webkit-scrollbar-thumb { background: #cfdbe8; border-radius: 2px; }
 
-.mode-group {
-    display: flex;
-    gap: 4px;
-    flex: 0 0 auto;
-}
-
-.variant-group {
+.mode-bar,
+.variant-bar {
     display: flex;
     gap: 6px;
-    flex-wrap: wrap;
-    flex: 1 1 auto;
-    min-width: 0;
+    flex: 0 0 auto;
+    align-items: center;
 }
 
 .variant-btn {
@@ -291,6 +287,7 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     cursor: pointer;
     transition: background .15s, color .15s, border-color .15s;
     font-family: inherit;
+    white-space: nowrap;
 }
 .variant-btn:hover { background: #e4eefb; color: #2b5a8a; }
 .variant-btn.active {
@@ -300,12 +297,10 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     font-weight: bold;
 }
 
-/* 模式按钮（放在 .variant-btn.active 之后，优先级相同则后者生效） */
-.mode-btn.active {
+/* 模式按钮用蓝色系区分 */
+.variant-btn.mode-btn.active {
     background: #5A9BE0;
-    color: #fff;
     border-color: #5A9BE0;
-    font-weight: bold;
 }
 </style>
 </head>
@@ -330,13 +325,10 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
             <textarea id="text-input">乘风破浪</textarea>
             <div class="preset-info" id="preset-info"></div>
 
-            <!-- 🌟 模式切换 + 同字数方案切换：同一行，常驻显示 -->
-            <div class="switch-bar" id="switch-bar">
-                <div class="mode-group" id="mode-group">
-                    <button type="button" class="variant-btn mode-btn" data-mode="grid">田字格</button>
-                    <button type="button" class="variant-btn mode-btn" data-mode="free">自由</button>
-                </div>
-                <div class="variant-group" id="variant-group"></div>
+            <!-- 🌟 模式切换 + 方案切换，恒定同一行 -->
+            <div class="switch-bar">
+                <div class="mode-bar" id="mode-bar"></div>
+                <div class="variant-bar" id="variant-bar"></div>
             </div>
         </div>
         <div class="form-group">
@@ -393,32 +385,31 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
             <label>文字垂直微调 (格内): <span id="text-y-offset-val">5</span> px</label>
             <input type="range" id="text-y-offset" min="-30" max="30">
         </div>
-        <!-- 整体上下居中调节 -->
         <div class="form-group">
             <label>整体上下偏移 (画布内): <span id="block-offset-y-val">0</span> px</label>
             <input type="range" id="block-offset-y" min="-300" max="300">
         </div>
         <div style="display:flex; gap:10px;">
             <div class="form-group" style="flex:1;">
-                <label>列间距: <span id="col-gap-val">0</span></label>
+                <label>列间距: <span id="col-gap-val">-2</span></label>
                 <input type="range" id="col-gap" min="-20.0" max="20.0" step="0.1">
             </div>
             <div class="form-group" style="flex:1;">
-                <label>行间距: <span id="line-gap-val">0</span></label>
+                <label>行间距: <span id="line-gap-val">-2</span></label>
                 <input type="range" id="line-gap" min="-20.0" max="20.0" step="0.1">
             </div>
         </div>
         <div style="display:flex; gap:10px;">
             <div class="form-group" style="flex:1;">
-                <label>外框线宽: <span id="border-width-val">2.5</span></label>
+                <label>外框线宽: <span id="border-width-val">2</span></label>
                 <input type="range" id="border-width" min="0" max="10" step="0.5">
             </div>
             <div class="form-group" style="flex:1;">
-                <label>内虚线宽: <span id="dash-width-val">2.5</span></label>
+                <label>内虚线宽: <span id="dash-width-val">1</span></label>
                 <input type="range" id="dash-width" min="0" max="5" step="0.5">
             </div>
             <div class="form-group" style="flex:1;">
-                <label>虚线密度: <span id="dash-density-val">6</span></label>
+                <label>虚线密度: <span id="dash-density-val">2</span></label>
                 <input type="range" id="dash-density" min="1" max="15">
             </div>
         </div>
@@ -441,7 +432,7 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 /* =========================================================
    常量与状态
    ========================================================= */
-const PREVIEW_DPR    = Math.min(2, window.devicePixelRatio || 1);
+const PREVIEW_DPR     = Math.min(2, window.devicePixelRatio || 1);
 const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
 
@@ -457,8 +448,41 @@ const fontStatus = new Map();
 /** 🌟 同字数多方案：记住每个预设 key 下选中的方案索引 */
 const variantSelections = new Map();
 
-/** 🌟 当前排版模式：'grid' 田字格 | 'free' 自由 */
-let currentMode = (CONFIG.defaultMode === 'free') ? 'free' : 'grid';
+/** 🌟 当前配置模式：'grid'（田字格） | 'free'（自由） */
+let currentMode = CONFIG.defaultMode || 'grid';
+
+/* =========================================================
+   参数合并：内部硬兜底 → 自由配置 → 田字格配置 → 字数方案
+   ========================================================= */
+
+/** 代码内部硬兜底（配置文件缺字段时保命） */
+const HARD_DEFAULTS = {
+    textColor    : '#000000',
+    lineColor    : '#888888',
+    fontSize     : 110,
+    textRatio    : 0.80,
+    colGap       : 0,
+    lineGap      : 0,
+    textYOffset  : 0,
+    blockOffsetY : 0,
+    borderWidth  : 2.5,
+    dashWidth    : 2.5,
+    dashDensity  : 6,
+    resolution   : 2,
+    charsPerLine : 0,
+    grid         : true,
+    italic       : false,
+    bold         : false,
+    strike       : false
+};
+
+/** 参与合并的全部参数名（font 仅当字数配置中显式给出时才覆盖） */
+const PARAM_KEYS = Object.keys(HARD_DEFAULTS).concat('font');
+
+/** 当前生效的"每行字数" */
+let currentCharsPerLine = 0;
+/** 上一次应用的配置标识（模式 + key + 变体索引） */
+let lastAppliedKey = undefined;
 
 /* =========================================================
    DOM 缓存
@@ -473,9 +497,8 @@ const els = {
 
     textInput   : document.getElementById('text-input'),
     presetInfo  : document.getElementById('preset-info'),
-    switchBar   : document.getElementById('switch-bar'),
-    modeGroup   : document.getElementById('mode-group'),
-    variantGroup: document.getElementById('variant-group'),
+    modeBar     : document.getElementById('mode-bar'),
+    variantBar  : document.getElementById('variant-bar'),
     toFullwidth : document.getElementById('to-fullwidth'),
     bgUpload    : document.getElementById('bg-upload'),
     bgListBox   : document.getElementById('bg-list-container'),
@@ -515,42 +538,6 @@ const els = {
 };
 
 /* =========================================================
-   参数基线：自由配置（兜底）
-   ========================================================= */
-
-/** 内部硬兜底（万一 config.js 里 freeParams 缺字段也不至于崩） */
-const FALLBACK_PARAMS = {
-    textColor    : "#5586FF",
-    lineColor    : "#7BAFE8",
-    fontSize     : 110,
-    textRatio    : 0.80,
-    colGap       : 0,
-    lineGap      : 0,
-    textYOffset  : 5,
-    blockOffsetY : 0,
-    borderWidth  : 2.5,
-    dashWidth    : 2.5,
-    dashDensity  : 6,
-    resolution   : 2,
-    charsPerLine : 0,
-    grid         : true,
-    italic       : false,
-    bold         : false,
-    strike       : false
-};
-
-/** 🌟 自由配置：全局兜底基线（合并了内部硬兜底） */
-const FREE_PARAMS = Object.assign({}, FALLBACK_PARAMS, CONFIG.freeParams || {});
-
-/** 参与合并的全部参数名（font 仅当配置里显式给出时才覆盖） */
-const PARAM_KEYS = Object.keys(FREE_PARAMS).concat('font');
-
-/** 当前生效的"每行字数" */
-let currentCharsPerLine = FREE_PARAMS.charsPerLine || 0;
-/** 上一次应用的配置标识（mode + key + 变体索引） */
-let lastAppliedKey = undefined;
-
-/* =========================================================
    按字数配置：解析与合并
    ========================================================= */
 
@@ -579,7 +566,7 @@ function matchRangeKey(key, count) {
 
 /** 找出该字数命中的配置 key（精确匹配优先，其次区间匹配） */
 function resolvePresetKey(count) {
-    const presets = CONFIG.gridPresets || {};
+    const presets = CONFIG.lengthPresets || {};
     const keys = Object.keys(presets);
 
     if (Object.prototype.hasOwnProperty.call(presets, String(count))) {
@@ -596,7 +583,7 @@ function resolvePresetKey(count) {
 /** 取某个 key 下的所有方案（统一返回数组） */
 function getVariantsForKey(key) {
     if (key === null) return [];
-    const presets = CONFIG.gridPresets || {};
+    const presets = CONFIG.lengthPresets || {};
     if (!Object.prototype.hasOwnProperty.call(presets, key)) return [];
     const v = presets[key];
     if (v === undefined || v === null) return [];
@@ -611,16 +598,34 @@ function getVariantIndex(key, count) {
     return 0;
 }
 
+/** 取模式名 */
+function getModeName(modeKey) {
+    const list = CONFIG.modes || [];
+    const hit = list.find(m => m.key === modeKey);
+    return hit ? hit.name : modeKey;
+}
+
 /**
- * 合并参数：字数方案 > 自由配置（兜底）
- * @param {Object|null} preset 字数方案对象；null 表示直接用自由配置
+ * 🌟 取当前模式的基础参数（兜底层）
+ *   free → HARD_DEFAULTS + freeConfig
+ *   grid → HARD_DEFAULTS + freeConfig + gridConfig（田字格仍由自由配置兜底）
  */
-function mergeParams(preset) {
+function getBaseParams(mode) {
+    const out = Object.assign({}, HARD_DEFAULTS, CONFIG.freeConfig || {});
+    if (mode === 'grid') {
+        Object.assign(out, CONFIG.gridConfig || {});
+    }
+    return out;
+}
+
+/** 合并：字数方案 > 模式配置（田字格/自由） > 自由配置 > 硬兜底 */
+function mergeParams(preset, mode) {
+    const base = getBaseParams(mode);
     const out = {};
     for (let i = 0; i < PARAM_KEYS.length; i++) {
         const k = PARAM_KEYS[i];
         const v = preset ? preset[k] : undefined;
-        out[k] = (v !== undefined) ? v : FREE_PARAMS[k];
+        out[k] = (v !== undefined) ? v : base[k];
     }
     return out;
 }
@@ -667,7 +672,7 @@ function applyParamsToUI(p) {
     els.styleBold.checked   = !!p.bold;
     els.styleStrike.checked = !!p.strike;
 
-    // 字体只在配置里显式写过时才覆盖
+    // 字体只在字数配置里显式写过时才覆盖
     if (p.font) {
         const exists = Array.from(els.fontFamily.options).some(o => o.value === p.font);
         if (exists) els.fontFamily.value = p.font;
@@ -681,34 +686,59 @@ function updatePresetInfo(count, key, preset, idx, total) {
     const box = els.presetInfo;
     if (!box) return;
 
-    if (currentMode === 'free') {
-        box.classList.remove('hit');
-        box.textContent = `共 ${count} 字 · 自由配置（不套用田字格字数方案）`;
-        return;
-    }
+    const modeName = getModeName(currentMode);
 
     if (key === null) {
         box.classList.remove('hit');
-        box.textContent = `共 ${count} 字 · 未匹配到字数配置，使用自由配置兜底`;
+        box.textContent = `共 ${count} 字 · ${modeName} · 未匹配到字数配置，使用默认配置`;
         return;
     }
 
     box.classList.add('hit');
     const name = (preset && preset.name) ? preset.name : key;
     const idxLabel = total > 1 ? `（方案 ${idx + 1}/${total}）` : '';
-    box.textContent = `共 ${count} 字 · 命中配置「${key}」· ${name}${idxLabel}`;
+    box.textContent = `共 ${count} 字 · ${modeName} · 命中配置「${key}」· ${name}${idxLabel}`;
 }
 
-/** 🌟 同字数多方案切换按钮（与模式按钮同一行，常驻容器不跳动） */
-function buildVariantButtons(variants, currentIdx, key) {
-    const box = els.variantGroup;
+/**
+ * 🌟 构建「配置模式切换」+「同字数多方案切换」按钮
+ *    两者放在同一行（.switch-bar），模式按钮恒定存在，排版不跳动
+ */
+function buildSwitchButtons(variants, currentIdx, key) {
+    /* ---- 模式按钮（恒定渲染） ---- */
+    const modeBox = els.modeBar;
+    if (modeBox) {
+        modeBox.innerHTML = '';
+        const modes = (CONFIG.modes && CONFIG.modes.length)
+            ? CONFIG.modes
+            : [{ key: 'grid', name: '田字格' }, { key: 'free', name: '自由' }];
+
+        modes.forEach(m => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'variant-btn mode-btn' + (m.key === currentMode ? ' active' : '');
+            btn.textContent = m.name;
+            btn.title = `切换到「${m.name}」配置`;
+            btn.addEventListener('click', () => {
+                if (currentMode === m.key) return;
+                currentMode = m.key;
+                syncParamsFromText(true);   // 强制把新模式的参数写回界面
+                scheduleRender();
+            });
+            modeBox.appendChild(btn);
+        });
+    }
+
+    /* ---- 同字数多方案按钮 ---- */
+    const box = els.variantBar;
     if (!box) return;
 
     box.innerHTML = '';
 
-    // 自由模式 / 无多方案 → 不显示任何方案按钮（容器常驻，不影响排版）
-    if (currentMode !== 'grid') return;
-    if (!variants || variants.length <= 1) return;
+    if (variants.length <= 1) {
+        // 没有可选方案时保持空容器（行高由模式按钮撑起，不跳动）
+        return;
+    }
 
     variants.forEach((v, i) => {
         const btn = document.createElement('button');
@@ -724,52 +754,16 @@ function buildVariantButtons(variants, currentIdx, key) {
     });
 }
 
-/** 刷新模式按钮的选中态 */
-function updateModeButtons() {
-    if (!els.modeGroup) return;
-    els.modeGroup.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === currentMode);
-    });
-}
-
-/** 切换排版模式 */
-function setMode(mode) {
-    const m = (mode === 'free') ? 'free' : 'grid';
-    if (m === currentMode) return;
-
-    currentMode = m;
-    lastAppliedKey = undefined;
-    updateModeButtons();
-
-    // 切换后立即把对应参数写回界面
-    syncParamsFromText(true);
-    scheduleRender();
-}
-
 /**
  * 根据当前文字内容解析配置。
- * - 田字格模式：命中方案变化（或 force）时把参数写回界面
- * - 自由模式：不套用字数方案，force 时把自由配置写回界面
+ * - 命中方案 / 模式变化（或 force）时把参数写回界面
  * - charsPerLine 每次都刷新
  */
 function syncParamsFromText(force) {
     const text  = els.textInput.value;
     const count = countTextChars(text);
-
-    /* ---------- 自由模式 ---------- */
-    if (currentMode === 'free') {
-        currentCharsPerLine = Number(FREE_PARAMS.charsPerLine) || 0;
-
-        const mergedFree = mergeParams(null);
-        if (force) applyParamsToUI(mergedFree);
-
-        updatePresetInfo(count, null, null, 0, 0);
-        buildVariantButtons([], 0, null);
-        return mergedFree;
-    }
-
-    /* ---------- 田字格模式 ---------- */
     const key   = resolvePresetKey(count);
+
     const variants = getVariantsForKey(key);
     const idx      = getVariantIndex(key, variants.length);
     const preset   = variants.length > 0 ? variants[idx] : null;
@@ -777,17 +771,16 @@ function syncParamsFromText(force) {
     // 每行字数（每次刷新，保证自动排版跟随字数）
     currentCharsPerLine = resolveCharsPerLine(text, preset);
 
-    // 田字格方案 > 自由配置兜底
-    const merged = mergeParams(preset);
+    const merged = mergeParams(preset, currentMode);
 
-    const uiKey = `grid|${key === null ? 'default' : key}#${idx}`;
+    const uiKey = `${currentMode}|${key === null ? 'default' : key}#${idx}`;
     if (force || uiKey !== lastAppliedKey) {
         lastAppliedKey = uiKey;
         applyParamsToUI(merged);
     }
 
     updatePresetInfo(count, key, preset, idx, variants.length);
-    buildVariantButtons(variants, idx, key);
+    buildSwitchButtons(variants, idx, key);
     return merged;
 }
 
@@ -855,7 +848,8 @@ async function loadFontCSS(main, fallback) {
 }
 
 async function loadAllOnlineFonts() {
-    await Promise.all(CONFIG.onlineFonts.map(async (f) => {
+    const list = CONFIG.onlineFonts || [];
+    await Promise.all(list.map(async (f) => {
         const ok = await loadFontCSS(f.mainCss, f.fallbackCss);
         fontStatus.set(f.name, ok);
     }));
@@ -1207,11 +1201,6 @@ function bindEvents() {
         scheduleRender();
     });
 
-    // 🌟 模式切换按钮（田字格 / 自由）
-    els.modeGroup.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.addEventListener('click', () => setMode(btn.dataset.mode));
-    });
-
     // 参数控件 -> rAF 节流渲染
     const inputs = [
         els.fontFamily,
@@ -1271,10 +1260,18 @@ function bindEvents() {
    启动
    ========================================================= */
 async function initApp() {
-    document.body.className = `layout-${CONFIG.panelPosition}`;
+    if (typeof CONFIG === 'undefined' || !CONFIG) {
+        alert('配置加载失败：请确认 src/config.js 存在且路径正确。');
+        return;
+    }
+
+    document.body.className = `layout-${CONFIG.panelPosition || 'right'}`;
+
+    // 0. 当前模式
+    currentMode = CONFIG.defaultMode || 'grid';
 
     // 1. 字体下拉框
-    CONFIG.availableFonts.forEach(font => {
+    (CONFIG.availableFonts || []).forEach(font => {
         const opt = document.createElement('option');
         opt.value = font;
         opt.textContent = font;
@@ -1285,21 +1282,18 @@ async function initApp() {
     // 2. 字号快捷按钮
     buildPresetButtons();
 
-    // 3. 模式按钮初始状态
-    updateModeButtons();
-
-    // 4. 依据当前文字/模式解析配置并应用
+    // 3. 依据当前文字解析配置并应用
     syncParamsFromText(true);
 
-    // 5. 事件
+    // 4. 事件
     bindEvents();
 
-    // 6. 首屏
+    // 5. 首屏
     updateCanvasSize();
     fitStage();
     render();
 
-    // 7. 预设背景缩略图
+    // 6. 预设背景缩略图
     let defaultBg = CONFIG.bgImageUrl;
     if (CONFIG.bgImageFolder && CONFIG.bgImageFolder.length > 0) {
         els.bgListBox.style.display = 'block';
@@ -1323,10 +1317,10 @@ async function initApp() {
         });
     }
 
-    // 8. 背景图
+    // 7. 背景图
     if (defaultBg) setBackground(defaultBg);
 
-    // 9. 在线字体
+    // 8. 在线字体
     loadAllOnlineFonts().then(() => {
         markFontOptions();
         render();
