@@ -6,130 +6,8 @@
 <title>文本模板图片生成器</title>
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 
-<!-- ========================================== -->
-<!-- 🌟 全局默认配置区域 🌟 -->
-<!-- ========================================== -->
-<script>
-const CONFIG = {
-    // 面板位置: 'top' | 'bottom' | 'left' | 'right'
-    panelPosition: "right",
-
-    // 默认背景图路径 (留空则显示纯色)
-    bgImageUrl: "src/bg01.jpg",
-
-    // 预设的背景图列表（模拟文件夹）
-    bgImageFolder: [
-        "src/bg01.jpg"
-    ],
-
-    // 字体设置
-    defaultFont: "方正正中黑简体",
-    availableFonts: [
-        "方正正中黑简体",
-        "得意黑",
-        "Microsoft YaHei",
-        "SimSun",
-        "KaiTi",
-        "Arial",
-        "sans-serif"
-    ],
-
-    // 🌟 在线字体配置
-    onlineFonts: [
-        {
-            name: "方正正中黑简体",
-            mainCss: "https://sucloudplus.github.io/fonts/FZZhengHeiS-DB-GB/stylesheet.css",
-            fallbackCss: ""
-        },
-        {
-            name: "得意黑",
-            mainCss: "https://fontsapi.zeoseven.com/92/main/result.css",
-            fallbackCss: "https://fontsapi-storage.zeoseven.com/92/main/result.css"
-        }
-    ],
-
-    // 样式默认开关
-    defaultStyles: {
-        grid: true,
-        italic: false,
-        bold: false,
-        strike: false
-    },
-
-    /* ==================== 默认参数（所有字数共用的兜底） ==================== */
-    textColor: "#5586FF",
-    lineColor: "#7BAFE8",
-    fontSize: 110,
-    textRatio: 0.80,
-    colGap: 0.0,
-    lineGap: 0.0,
-    textYOffset: 5, // 文字垂直微调 (格内)
-    blockOffsetY: 0, // 整体上下偏移 (画布内)
-    borderWidth: 2.5, // 外框线宽
-    dashWidth: 2.5, // 内虚线宽
-    dashDensity: 6, // 虚线密度
-    resolution: 2, // 渲染精度
-
-    // 每行字数（0 = 不自动换行，完全按输入的回车分行）
-    charsPerLine: 0,
-
-    /* ======================================================================
-       🌟 按【字数】的额外配置（支持同一字数多套方案，可点击切换）
-       ----------------------------------------------------------------------
-       key 的写法（按顺序匹配，精确优先）：
-           4        → 精确匹配 4 个字
-           "5-8"    → 5 ~ 8 个字（含两端，也支持 "5~8" / "5至8"）
-           "9+"     → 9 个字及以上
-           "1-"     → 1 个字及以下
-       value 可以是【单个对象】或【对象数组】（数组即同字数多套方案，可切换）
-       每个对象可用字段：
-           name            方案名称（显示在切换按钮上）
-           rows            自动分行：分成几行（每行字数 = ceil(字数 / rows)）
-           charsPerLine    显式每行字数（优先于 rows；0 表示不自动换行）
-           fontSize / textRatio / colGap / lineGap / textYOffset / blockOffsetY /
-           borderWidth / dashWidth / dashDensity / resolution /
-           font / grid / italic / bold / strike / textColor / lineColor
-       没写的参数 → 自动沿用上面的默认配置。
-       ====================================================================== */
-    lengthPresets: {
-        1: { name: "单字", rows: 1, fontSize: 230, textRatio: 0.80, blockOffsetY:-45 },
-        2: { name: "一行两字", rows: 1, fontSize: 172, textRatio: 0.80, textYOffset: -4, blockOffsetY:-40 },
-        3: { name: "一行三字", rows: 1, fontSize: 135, textRatio: 0.82, textYOffset: -4, blockOffsetY:-40 },
-        4: { name: "一行四字", rows: 1, fontSize: 135, blockOffsetY:-40, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 4},
-        5: { name: "一行五字", rows: 1, fontSize: 115, blockOffsetY:-40, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 4},
-        // 🌟 6 字两套方案：一行6字 / 两行3字
-        6: [
-            { name: "一行六字", rows: 1, fontSize: 115, blockOffsetY:-40, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 4},
-            { name: "两行三字", rows: 2, fontSize: 95, textRatio:0.79,  textYOffset: 1, blockOffsetY:-45, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 4}
-        ],
-        7: { name: "一行七字", rows: 1, fontSize: 96, textRatio:0.79, blockOffsetY:-45, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 4},
-
-        // 8~14：双行；奇数时上行比下行多一个字（如 9→5/4，13→7/6）
-        "8-14": { name: "双行", rows: 2, fontSize: 95, blockOffsetY:-45, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 4},
-
-        // 15：三行 5/5/5
-        15: { name: "三行五字", rows: 3, fontSize: 97, blockOffsetY:17, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 3},
-        // 16：双行 8/8
-        16: { name: "双行八字", rows: 2, fontSize: 96, blockOffsetY:-43, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 3},
-
-        // 17~21：三行（17→6/6/5，18→6/6/6，19→7/7/5，20→7/7/6，21→7/7/7）
-        "17-21": { name: "三行", rows: 3, fontSize: 97, blockOffsetY:17, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 3, textYOffset: 1},
-        // 22~24：三行八字（22→8/8/6，23→8/8/7，24→8/8/8）
-        "22-24": { name: "三行八字", rows: 3, fontSize: 97, blockOffsetY:17, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 2, textYOffset: 1},
-        // 25~27：三行九字（25→9/9/7，26→9/9/8，27→9/9/9）
-        "25-27": { name: "三行九字", rows: 3, fontSize: 90, blockOffsetY:17, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 2, textYOffset: 1},
-        // 28-30：三行十字（10/10/8）
-        "28-30": { name: "三行十字", rows: 3, fontSize: 80, blockOffsetY:17, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 2, textYOffset: 1},
-
-        // 31 字以上兜底
-        "31-40": { name: "四行", rows: 4, fontSize: 80, blockOffsetY:17, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 2, textYOffset: 1},
-        "41+": { name: "五行", rows: 5, fontSize: 80, blockOffsetY:17, borderWidth: 1.5, dashWidth: 1.5, dashDensity: 2, textYOffset: 1},
-    },
-
-    // 画布逻辑宽度（固定，导出尺寸不受窗口影响）
-    logicalWidth: 1067
-};
-</script>
+<!-- 🌟 全局配置文件（已分离到 src/config.js） -->
+<script src="src/config.js"></script>
 
 <style>
 :root { --panel-bg: #fff; --border-color: #e0e0e0; }
@@ -373,22 +251,68 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 }
 .preset-info.hit { color: #2ECC71; font-weight: bold; }
 
-/* 🌟 同字数多方案切换按钮栏 */
-.variant-bar {
-    display: none;
+/* ============================================================
+   🌟 模式切换 + 同字数多方案切换（同一行，高度固定，避免跳动）
+   ============================================================ */
+.preset-bar {
+    display: flex;
+    align-items: center;
     gap: 6px;
-    flex-wrap: wrap;
-    margin-top: 4px;
+    flex-wrap: nowrap;
+    min-height: 30px;
+    height: 30px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 1px 0;
+}
+.preset-bar::-webkit-scrollbar { height: 4px; }
+.preset-bar::-webkit-scrollbar-thumb { background: #ccd6e2; border-radius: 2px; }
+.preset-bar::-webkit-scrollbar-track { background: transparent; }
+
+.mode-switch {
+    display: flex;
+    flex: 0 0 auto;
+    border: 1px solid #b8cce3;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.mode-btn {
+    padding: 3px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    border: none;
+    border-radius: 0;
+    background: #f5f9ff;
+    color: #4a6a8a;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    transition: background .15s, color .15s;
+}
+.mode-btn:hover { background: #e4eefb; color: #2b5a8a; }
+.mode-btn.active {
+    background: #5A9BE0;
+    color: #fff;
+    font-weight: bold;
+}
+.mode-btn.active:hover { background: #5A9BE0; color: #fff; }
+
+.variant-bar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: nowrap;
+    flex: 0 0 auto;
 }
 .variant-btn {
-    padding: 4px 10px;
+    padding: 3px 10px;
     font-size: 12px;
-    line-height: 1.4;
+    line-height: 1.5;
     border: 1px solid #b8cce3;
     background: #f5f9ff;
     color: #4a6a8a;
     border-radius: 4px;
     cursor: pointer;
+    white-space: nowrap;
     transition: background .15s, color .15s, border-color .15s;
     font-family: inherit;
 }
@@ -418,10 +342,17 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     <div class="panel-section">
         <h3>1. 内容与背景</h3>
         <div class="form-group">
-            <label>输入文字 <button id="to-fullwidth" class="small" type="button">转全角</button></label>
+            <label>输入文字 <button id="convert-width" class="small" type="button">转全角</button></label>
             <textarea id="text-input">乘风破浪</textarea>
             <div class="preset-info" id="preset-info"></div>
-            <div class="variant-bar" id="variant-bar"></div>
+            <!-- 🌟 模式切换 + 字数方案切换（同一行，固定高度） -->
+            <div class="preset-bar" id="preset-bar">
+                <div class="mode-switch" id="mode-switch">
+                    <button type="button" class="mode-btn active" data-mode="grid">田字格</button>
+                    <button type="button" class="mode-btn" data-mode="free">自由</button>
+                </div>
+                <div class="variant-bar" id="variant-bar"></div>
+            </div>
         </div>
         <div class="form-group">
             <label>自定义上传背景</label>
@@ -477,7 +408,6 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
             <label>文字垂直微调 (格内): <span id="text-y-offset-val">5</span> px</label>
             <input type="range" id="text-y-offset" min="-30" max="30">
         </div>
-        <!-- 🌟 新增：整体上下居中调节 -->
         <div class="form-group">
             <label>整体上下偏移 (画布内): <span id="block-offset-y-val">0</span> px</label>
             <input type="range" id="block-offset-y" min="-300" max="300">
@@ -523,14 +453,40 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
 <script>
 /* =========================================================
+   全局配置引用
+   ========================================================= */
+const CONFIG = window.APP_CONFIG || {};
+const FREE_PARAMS = CONFIG.freeConfig || {};
+const GRID_PRESETS = (CONFIG.gridConfig && CONFIG.gridConfig.lengthPresets) || {};
+
+/* =========================================================
    常量与状态
    ========================================================= */
 const PREVIEW_DPR    = Math.min(2, window.devicePixelRatio || 1);
 const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
+/** 🌟 自动全角开关（默认开启） */
+let autoFullwidth = true;
 
-let logicalW = CONFIG.logicalWidth;
-let logicalH = Math.round(CONFIG.logicalWidth * 9 / 16);
+/** 🌟 极简兜底（配置文件中也没写时的最后防线） */
+const FALLBACK_DEFAULTS = {
+    textColor: "#5586FF", lineColor: "#7BAFE8",
+    fontSize: 110, textRatio: 0.8, colGap: 0, lineGap: 0,
+    textYOffset: 0, blockOffsetY: 0,
+    borderWidth: 2.5, dashWidth: 2.5, dashDensity: 6,
+    resolution: 2,
+    grid: true, italic: false, bold: false, strike: false, font: ""
+};
+
+/** 参与合并的全部参数名 */
+const PARAM_KEYS = [
+    'textColor', 'lineColor', 'fontSize', 'textRatio', 'colGap', 'lineGap',
+    'textYOffset', 'blockOffsetY', 'borderWidth', 'dashWidth', 'dashDensity',
+    'resolution', 'grid', 'italic', 'bold', 'strike', 'font'
+];
+
+let logicalW = CONFIG.logicalWidth || 1067;
+let logicalH = Math.round((CONFIG.logicalWidth || 1067) * 9 / 16);
 
 let previewCtx = null;
 let rafPending = false;
@@ -540,6 +496,14 @@ const fontStatus = new Map();
 
 /** 🌟 同字数多方案：记住每个预设 key 下选中的方案索引 */
 const variantSelections = new Map();
+
+/** 🌟 当前配置模式：'grid'（田字格） | 'free'（自由） */
+let currentMode = 'grid';
+
+/** 当前生效的"每行字数" */
+let currentCharsPerLine = 0;
+/** 上一次应用的配置标识 */
+let lastAppliedKey = undefined;
 
 /* =========================================================
    DOM 缓存
@@ -554,8 +518,10 @@ const els = {
 
     textInput   : document.getElementById('text-input'),
     presetInfo  : document.getElementById('preset-info'),
+    presetBar   : document.getElementById('preset-bar'),
+    modeSwitch  : document.getElementById('mode-switch'),
     variantBar  : document.getElementById('variant-bar'),
-    toFullwidth : document.getElementById('to-fullwidth'),
+    convertBtn  : document.getElementById('convert-width'),
     bgUpload    : document.getElementById('bg-upload'),
     bgListBox   : document.getElementById('bg-list-container'),
     imageList   : document.getElementById('image-list'),
@@ -594,42 +560,84 @@ const els = {
 };
 
 /* =========================================================
-   按字数配置：解析与合并
+   工具：字数 / 全半角
    ========================================================= */
-
-/** 默认参数基线（未在字数配置中出现的项都走这里） */
-const BASE_PARAMS = {
-    textColor    : CONFIG.textColor,
-    lineColor    : CONFIG.lineColor,
-    fontSize     : CONFIG.fontSize,
-    textRatio    : CONFIG.textRatio,
-    colGap       : CONFIG.colGap,
-    lineGap      : CONFIG.lineGap,
-    textYOffset  : CONFIG.textYOffset,
-    blockOffsetY : CONFIG.blockOffsetY,
-    borderWidth  : CONFIG.borderWidth,
-    dashWidth    : CONFIG.dashWidth,
-    dashDensity  : CONFIG.dashDensity,
-    resolution   : CONFIG.resolution,
-    charsPerLine : CONFIG.charsPerLine ?? 0,
-    grid         : CONFIG.defaultStyles.grid,
-    italic       : CONFIG.defaultStyles.italic,
-    bold         : CONFIG.defaultStyles.bold,
-    strike       : CONFIG.defaultStyles.strike
-};
-
-/** 参与合并的全部参数名（font 仅当字数配置中显式给出时才覆盖） */
-const PARAM_KEYS = Object.keys(BASE_PARAMS).concat('font');
-
-/** 当前生效的"每行字数" */
-let currentCharsPerLine = BASE_PARAMS.charsPerLine;
-/** 上一次应用的配置标识（key + 变体索引） */
-let lastAppliedKey = undefined;
 
 /** 统计字数：忽略换行符 */
 function countTextChars(text) {
     return String(text).replace(/[\r\n]/g, '').length;
 }
+
+/** 字符视觉宽度因子：半角 0.5，全角 1 */
+function charWidthFactor(ch) {
+    if (!ch) return 1;
+    const code = ch.codePointAt(0);
+    if (code === 0x00A0) return 0.5;                    // 不间断空格
+    if (code <= 0x7F) return 0.5;                       // 半角 ASCII（含空格）
+    if (code >= 0xFF61 && code <= 0xFFDC) return 0.5;   // 半角片假名等
+    if (code >= 0xFFE8 && code <= 0xFFEE) return 0.5;   // 半角标点
+    return 1;
+}
+
+/** 是否空白字符（占位但不绘制格子/文字） */
+function isBlankChar(ch) {
+    return ch === ' ' || ch === '　' || ch === '\t' || ch === '\u00A0';
+}
+
+/** 半角 → 全角 */
+function toFullwidth(str) {
+    let out = '';
+    for (const ch of String(str)) {
+        const code = ch.codePointAt(0);
+        if (code === 32) out += String.fromCharCode(12288);
+        else if (code > 32 && code < 127) out += String.fromCharCode(code + 65248);
+        else out += ch;
+    }
+    return out;
+}
+
+/** 全角 → 半角 */
+function toHalfwidth(str) {
+    let out = '';
+    for (const ch of String(str)) {
+        const code = ch.codePointAt(0);
+        if (code === 12288) out += ' ';
+        else if (code >= 0xFF01 && code <= 0xFF5E) out += String.fromCharCode(code - 65248);
+        else out += ch;
+    }
+    return out;
+}
+
+/** 🌟 自动把输入框内容中的半角字符转为全角，并保留光标位置 */
+function applyAutoFullwidth() {
+    const text = els.textInput.value;
+    const converted = toFullwidth(text);
+    if (converted !== text) {
+        const start = els.textInput.selectionStart;
+        const end   = els.textInput.selectionEnd;
+        els.textInput.value = converted;
+        // 全角/半角是 1:1 替换，长度不变，光标位置可直接还原
+        els.textInput.setSelectionRange(start, end);
+    }
+}
+
+const RE_HALF_CONVERTIBLE = /[\x21-\x7E ]/;          // 可转为全角的半角字符
+const RE_FULL_CONVERTIBLE = /[\uFF01-\uFF5E\u3000]/; // 可转为半角的全角字符
+
+/** 🌟 按钮文字随自动全角开关切换 */
+function updateConvertBtn() {
+    if (autoFullwidth) {
+        els.convertBtn.textContent = '转半角';
+        els.convertBtn.dataset.mode = 'half';
+    } else {
+        els.convertBtn.textContent = '转全角';
+        els.convertBtn.dataset.mode = 'full';
+    }
+}
+
+/* =========================================================
+   按字数配置：解析与合并
+   ========================================================= */
 
 /** 区间 key 归一化 */
 function normalizeRangeKey(key) {
@@ -651,10 +659,8 @@ function matchRangeKey(key, count) {
 
 /** 找出该字数命中的配置 key（精确匹配优先，其次区间匹配） */
 function resolvePresetKey(count) {
-    const presets = CONFIG.lengthPresets || {};
-    const keys = Object.keys(presets);
-
-    if (Object.prototype.hasOwnProperty.call(presets, String(count))) {
+    const keys = Object.keys(GRID_PRESETS);
+    if (Object.prototype.hasOwnProperty.call(GRID_PRESETS, String(count))) {
         return String(count);
     }
     for (let i = 0; i < keys.length; i++) {
@@ -668,9 +674,8 @@ function resolvePresetKey(count) {
 /** 取某个 key 下的所有方案（统一返回数组） */
 function getVariantsForKey(key) {
     if (key === null) return [];
-    const presets = CONFIG.lengthPresets || {};
-    if (!Object.prototype.hasOwnProperty.call(presets, key)) return [];
-    const v = presets[key];
+    if (!Object.prototype.hasOwnProperty.call(GRID_PRESETS, key)) return [];
+    const v = GRID_PRESETS[key];
     if (v === undefined || v === null) return [];
     return Array.isArray(v) ? v : [v];
 }
@@ -683,13 +688,19 @@ function getVariantIndex(key, count) {
     return 0;
 }
 
-/** 合并：字数方案 > 默认配置 */
+/**
+ * 🌟 合并参数
+ *   - 田字格模式：preset（田字格配置） > freeConfig（自由配置兜底） > FALLBACK_DEFAULTS
+ *   - 自由模式  ：freeConfig（自由配置） > FALLBACK_DEFAULTS
+ */
 function mergeParams(preset) {
     const out = {};
     for (let i = 0; i < PARAM_KEYS.length; i++) {
         const k = PARAM_KEYS[i];
-        const v = preset ? preset[k] : undefined;
-        out[k] = (v !== undefined) ? v : BASE_PARAMS[k];
+        let v = preset ? preset[k] : undefined;
+        if (v === undefined || v === null || v === '') v = FREE_PARAMS[k];
+        if (v === undefined || v === null || v === '') v = FALLBACK_DEFAULTS[k];
+        out[k] = v;
     }
     return out;
 }
@@ -698,13 +709,11 @@ function mergeParams(preset) {
 function resolveCharsPerLine(text, preset) {
     if (!preset) return 0;
 
-    // 1) 显式 charsPerLine（0 表示不自动换行）
     if (preset.charsPerLine !== undefined && preset.charsPerLine !== null && preset.charsPerLine !== '') {
         const cpl = Number(preset.charsPerLine);
         if (!isNaN(cpl)) return cpl > 0 ? Math.floor(cpl) : 0;
     }
 
-    // 2) rows 自动推算：ceil(字数 / rows)
     if (preset.rows !== undefined && preset.rows !== null) {
         const rows = Number(preset.rows);
         if (!isNaN(rows) && rows > 0) {
@@ -736,7 +745,6 @@ function applyParamsToUI(p) {
     els.styleBold.checked   = !!p.bold;
     els.styleStrike.checked = !!p.strike;
 
-    // 字体只在字数配置里显式写过时才覆盖
     if (p.font) {
         const exists = Array.from(els.fontFamily.options).some(o => o.value === p.font);
         if (exists) els.fontFamily.value = p.font;
@@ -746,13 +754,19 @@ function applyParamsToUI(p) {
 }
 
 /** 更新"字数配置命中"提示 */
-function updatePresetInfo(count, key, preset, idx, total) {
+function updatePresetInfo(count, key, preset, idx, total, isFree) {
     const box = els.presetInfo;
     if (!box) return;
 
+    if (isFree) {
+        box.classList.add('hit');
+        box.textContent = `共 ${count} 字 · 自由配置（换行由回车决定）`;
+        return;
+    }
+
     if (key === null) {
         box.classList.remove('hit');
-        box.textContent = `共 ${count} 字 · 未匹配到字数配置，使用默认配置`;
+        box.textContent = `共 ${count} 字 · 未匹配到字数配置，使用自由配置兜底`;
         return;
     }
 
@@ -767,14 +781,8 @@ function buildVariantButtons(variants, currentIdx, key) {
     const box = els.variantBar;
     if (!box) return;
 
-    if (variants.length <= 1) {
-        box.style.display = 'none';
-        box.innerHTML = '';
-        return;
-    }
-
-    box.style.display = 'flex';
     box.innerHTML = '';
+    if (!variants || variants.length <= 1) return;
 
     variants.forEach((v, i) => {
         const btn = document.createElement('button');
@@ -783,6 +791,7 @@ function buildVariantButtons(variants, currentIdx, key) {
         btn.textContent = v.name || `方案 ${i + 1}`;
         btn.addEventListener('click', () => {
             variantSelections.set(key, i);
+            lastAppliedKey = undefined;   // 强制重新应用
             syncParamsFromText(true);
             scheduleRender();
         });
@@ -791,33 +800,64 @@ function buildVariantButtons(variants, currentIdx, key) {
 }
 
 /**
- * 根据当前文字内容解析配置。
+ * 根据当前文字内容与模式解析配置。
  * - 命中方案变化（或 force）时把参数写回界面
  * - charsPerLine 每次都刷新
  */
 function syncParamsFromText(force) {
     const text  = els.textInput.value;
     const count = countTextChars(text);
-    const key   = resolvePresetKey(count);
 
+    /* ---------- 自由模式：完全使用兜底参数 ---------- */
+    if (currentMode === 'free') {
+        currentCharsPerLine = 0;                 // 换行完全由回车决定
+        const merged = mergeParams(null);
+
+        if (force || lastAppliedKey !== 'free') {
+            lastAppliedKey = 'free';
+            applyParamsToUI(merged);
+        }
+
+        updatePresetInfo(count, null, null, 0, 0, true);
+        buildVariantButtons([], 0, null);
+        return merged;
+    }
+
+    /* ---------- 田字格模式 ---------- */
+    const key      = resolvePresetKey(count);
     const variants = getVariantsForKey(key);
     const idx      = getVariantIndex(key, variants.length);
     const preset   = variants.length > 0 ? variants[idx] : null;
 
-    // 每行字数（每次刷新，保证自动排版跟随字数）
     currentCharsPerLine = resolveCharsPerLine(text, preset);
 
     const merged = mergeParams(preset);
 
-    const uiKey = `${key === null ? 'default' : key}#${idx}`;
+    const uiKey = `grid#${key === null ? 'default' : key}#${idx}`;
     if (force || uiKey !== lastAppliedKey) {
         lastAppliedKey = uiKey;
         applyParamsToUI(merged);
     }
 
-    updatePresetInfo(count, key, preset, idx, variants.length);
+    updatePresetInfo(count, key, preset, idx, variants.length, false);
     buildVariantButtons(variants, idx, key);
     return merged;
+}
+
+/** 🌟 切换配置模式 */
+function setMode(mode) {
+    if (mode !== 'grid' && mode !== 'free') return;
+    if (currentMode === mode) return;
+
+    currentMode = mode;
+    lastAppliedKey = undefined;
+
+    Array.from(els.modeSwitch.querySelectorAll('.mode-btn')).forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+
+    syncParamsFromText(true);
+    scheduleRender();
 }
 
 /**
@@ -884,12 +924,13 @@ async function loadFontCSS(main, fallback) {
 }
 
 async function loadAllOnlineFonts() {
-    await Promise.all(CONFIG.onlineFonts.map(async (f) => {
+    const list = CONFIG.onlineFonts || [];
+    await Promise.all(list.map(async (f) => {
         const ok = await loadFontCSS(f.mainCss, f.fallbackCss);
         fontStatus.set(f.name, ok);
     }));
 
-    await Promise.all(CONFIG.availableFonts.map(name =>
+    await Promise.all((CONFIG.availableFonts || []).map(name =>
         document.fonts
             ? document.fonts.load(`16px "${name}"`).catch(() => {})
             : Promise.resolve()
@@ -998,21 +1039,28 @@ function drawScene(ctx, W, H, p) {
 
     // 布局
     const boxSize  = p.size / p.ratio;
-    const colStep  = boxSize + p.colGap;
     const lineStep = boxSize + p.lineGap;
 
-    // 自动换行
-    const lines  = layoutLines(p.text, p.charsPerLine);
-    const maxLen = lines.reduce((m, l) => Math.max(m, l.length), 0);
+    // 分行 + 拆分字符
+    const lines = layoutLines(p.text, p.charsPerLine).map(l => Array.from(l));
 
-    const totalW = maxLen > 0 ? maxLen * boxSize + (maxLen - 1) * p.colGap : 0;
+    // 🌟 逐行宽度（半角字符占 0.5 个格子宽）
+    const lineWidths = lines.map(chars => {
+        let w = 0;
+        for (let i = 0; i < chars.length; i++) {
+            w += boxSize * charWidthFactor(chars[i]);
+        }
+        if (chars.length > 1) w += (chars.length - 1) * p.colGap;
+        return w;
+    });
+
+    const totalW = lineWidths.reduce((m, w) => Math.max(m, w), 0);
     const totalH = lines.length > 0
         ? lines.length * boxSize + (lines.length - 1) * p.lineGap
         : 0;
 
-    // 🌟 整体上下居中调节
+    // 整体上下居中调节
     const startY = (H - totalH) / 2 + p.blockOffsetY;
-    const half   = boxSize / 2;
 
     const fontStr =
         `${p.italic ? 'italic ' : ''}${p.bold ? 'bold ' : ''}` +
@@ -1024,56 +1072,57 @@ function drawScene(ctx, W, H, p) {
 
     // 逐行逐字绘制
     for (let r = 0; r < lines.length; r++) {
-        const line = lines[r];
-        if (line.length === 0) continue;
+        const chars = lines[r];
+        if (chars.length === 0) continue;
 
-        const lineW = line.length * boxSize + (line.length - 1) * p.colGap;
-        const lineX = (W - lineW) / 2;
-        const y     = startY + r * lineStep;
+        const y = startY + r * lineStep;
+        let x = (W - lineWidths[r]) / 2;
 
-        for (let c = 0; c < line.length; c++) {
-            const ch = line[c];
-            const x  = lineX + c * colStep;
+        for (let c = 0; c < chars.length; c++) {
+            const ch = chars[c];
+            const cw = boxSize * charWidthFactor(ch);   // 🌟 半角格子只有一半宽
 
-            if (ch === ' ' || ch === '　' || ch === '\t' || ch === '\u00A0') continue;
+            if (!isBlankChar(ch)) {
+                // 外框
+                if (p.grid && p.borderWidth > 0) {
+                    ctx.strokeStyle = p.lineColor;
+                    ctx.lineWidth   = p.borderWidth;
+                    ctx.strokeRect(x, y, cw, boxSize);
+                }
 
-            // 外框
-            if (p.grid && p.borderWidth > 0) {
-                ctx.strokeStyle = p.lineColor;
-                ctx.lineWidth   = p.borderWidth;
-                ctx.strokeRect(x, y, boxSize, boxSize);
+                // 内虚线
+                if (p.grid && p.dashWidth > 0 && p.dashDensity > 0) {
+                    ctx.save();
+                    ctx.strokeStyle = p.lineColor;
+                    ctx.lineWidth   = p.dashWidth;
+                    ctx.setLineDash([p.dashDensity, p.dashDensity]);
+
+                    const cx = x + cw / 2;
+                    const cy = y + boxSize / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, cy);              ctx.lineTo(x + cw, cy);
+                    ctx.moveTo(cx, y);              ctx.lineTo(cx, y + boxSize);
+                    ctx.moveTo(x, y);               ctx.lineTo(x + cw, y + boxSize);
+                    ctx.moveTo(x + cw, y);          ctx.lineTo(x, y + boxSize);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // 文字
+                const tx = x + cw / 2;
+                const ty = y + boxSize / 2 + p.yOffset;
+                ctx.fillStyle = p.textColor;
+                ctx.fillText(ch, tx, ty);
+
+                // 删除线
+                if (p.strike) {
+                    const tw = Math.min(ctx.measureText(ch).width, cw);
+                    const lh = Math.max(1, p.size * 0.06);
+                    ctx.fillRect(tx - tw / 2, ty - lh / 2, tw, lh);
+                }
             }
 
-            // 内虚线
-            if (p.grid && p.dashWidth > 0 && p.dashDensity > 0) {
-                ctx.save();
-                ctx.strokeStyle = p.lineColor;
-                ctx.lineWidth   = p.dashWidth;
-                ctx.setLineDash([p.dashDensity, p.dashDensity]);
-
-                const cx = x + half;
-                const cy = y + half;
-                ctx.beginPath();
-                ctx.moveTo(x, cy);              ctx.lineTo(x + boxSize, cy);
-                ctx.moveTo(cx, y);              ctx.lineTo(cx, y + boxSize);
-                ctx.moveTo(x, y);               ctx.lineTo(x + boxSize, y + boxSize);
-                ctx.moveTo(x + boxSize, y);     ctx.lineTo(x, y + boxSize);
-                ctx.stroke();
-                ctx.restore();
-            }
-
-            // 文字
-            const tx = x + half;
-            const ty = y + half + p.yOffset;
-            ctx.fillStyle = p.textColor;
-            ctx.fillText(ch, tx, ty);
-
-            // 删除线
-            if (p.strike) {
-                const tw = ctx.measureText(ch).width;
-                const lh = Math.max(1, p.size * 0.06);
-                ctx.fillRect(tx - tw / 2, ty - lh / 2, tw, lh);
-            }
+            x += cw + p.colGap;
         }
     }
 
@@ -1117,7 +1166,7 @@ function setBackground(url) {
         const natH = els.bgImg.naturalHeight;
         if (!natW || !natH) return;
 
-        logicalW = CONFIG.logicalWidth;
+        logicalW = CONFIG.logicalWidth || 1067;
         logicalH = Math.max(1, Math.round(logicalW * (natH / natW)));
 
         updateCanvasSize();
@@ -1230,13 +1279,33 @@ function exportImage() {
    事件绑定
    ========================================================= */
 function bindEvents() {
-    // 🌟 文字变化：先按字数解析配置，再渲染
-    els.textInput.addEventListener('input', () => {
+    /* ---------- 🌟 文字输入：自动转全角（含 IME 保护） ---------- */
+    let isComposing = false;
+
+    els.textInput.addEventListener('compositionstart', () => {
+        isComposing = true;
+    });
+
+    els.textInput.addEventListener('compositionend', () => {
+        isComposing = false;
+        // 输入法合成结束，再执行一次自动转全角（合成期间 value 是拼音，不能转）
+        if (autoFullwidth) applyAutoFullwidth();
+        updateConvertBtn();
         syncParamsFromText(false);
         scheduleRender();
     });
 
-    // 参数控件 -> rAF 节流渲染
+    els.textInput.addEventListener('input', () => {
+        // 合成期间跳过转换，避免打断输入法
+        if (!isComposing && autoFullwidth) {
+            applyAutoFullwidth();
+        }
+        updateConvertBtn();
+        syncParamsFromText(false);
+        scheduleRender();
+    });
+
+    /* ---------- 其他参数控件 ---------- */
     const inputs = [
         els.fontFamily,
         els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
@@ -1253,26 +1322,33 @@ function bindEvents() {
         });
     });
 
-    // 转全角
-    els.toFullwidth.addEventListener('click', () => {
-        const text = els.textInput.value;
-        let out = '';
-        for (let i = 0; i < text.length; i++) {
-            const code = text.charCodeAt(i);
-            if (code === 32) out += String.fromCharCode(12288);
-            else if (code > 32 && code < 127) out += String.fromCharCode(code + 65248);
-            else out += text[i];
+    /* ---------- 🌟 转全角 / 转半角 按钮 ---------- */
+    els.convertBtn.addEventListener('click', () => {
+        if (autoFullwidth) {
+            // 自动全角开启 → 关闭并转半角
+            els.textInput.value = toHalfwidth(els.textInput.value);
+            autoFullwidth = false;
+        } else {
+            // 自动全角关闭 → 开启并转全角
+            els.textInput.value = toFullwidth(els.textInput.value);
+            autoFullwidth = true;
         }
-        els.textInput.value = out;
+        updateConvertBtn();
         syncParamsFromText(false);
         scheduleRender();
+    });
+
+    /* ---------- 配置模式切换（田字格 / 自由） ---------- */
+    els.modeSwitch.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mode-btn');
+        if (!btn) return;
+        setMode(btn.dataset.mode);
     });
 
     // 上传背景
     els.bgUpload.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (ev) => {
             setBackground(ev.target.result);
@@ -1295,10 +1371,10 @@ function bindEvents() {
    启动
    ========================================================= */
 async function initApp() {
-    document.body.className = `layout-${CONFIG.panelPosition}`;
+    document.body.className = `layout-${CONFIG.panelPosition || 'right'}`;
 
     // 1. 字体下拉框
-    CONFIG.availableFonts.forEach(font => {
+    (CONFIG.availableFonts || []).forEach(font => {
         const opt = document.createElement('option');
         opt.value = font;
         opt.textContent = font;
@@ -1309,24 +1385,31 @@ async function initApp() {
     // 2. 字号快捷按钮
     buildPresetButtons();
 
-    // 3. 依据当前文字解析配置并应用
+    // 3. 模式按钮初始态（默认田字格）
+    Array.from(els.modeSwitch.querySelectorAll('.mode-btn')).forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === currentMode);
+    });
+
+    // 4. 依据当前文字解析配置并应用
+    updateConvertBtn();
     syncParamsFromText(true);
 
-    // 4. 事件
+    // 5. 事件
     bindEvents();
 
-    // 5. 首屏
+    // 6. 首屏
     updateCanvasSize();
     fitStage();
     render();
 
-    // 6. 预设背景缩略图
+    // 7. 预设背景缩略图
     let defaultBg = CONFIG.bgImageUrl;
-    if (CONFIG.bgImageFolder && CONFIG.bgImageFolder.length > 0) {
+    const folder = CONFIG.bgImageFolder || [];
+    if (folder.length > 0) {
         els.bgListBox.style.display = 'block';
-        if (!defaultBg) defaultBg = CONFIG.bgImageFolder[0];
+        if (!defaultBg) defaultBg = folder[0];
 
-        CONFIG.bgImageFolder.forEach(url => {
+        folder.forEach(url => {
             const img = document.createElement('img');
             img.src = url;
             img.className = 'image-thumb';
@@ -1344,10 +1427,10 @@ async function initApp() {
         });
     }
 
-    // 7. 背景图
+    // 8. 背景图
     if (defaultBg) setBackground(defaultBg);
 
-    // 8. 在线字体
+    // 9. 在线字体
     loadAllOnlineFonts().then(() => {
         markFontOptions();
         render();
