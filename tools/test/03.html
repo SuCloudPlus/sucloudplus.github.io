@@ -465,6 +465,8 @@ const GRID_PRESETS = (CONFIG.gridConfig && CONFIG.gridConfig.lengthPresets) || {
 const PREVIEW_DPR    = Math.min(2, window.devicePixelRatio || 1);
 const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
+/** 🌟 自动全角开关（默认开启） */
+let autoFullwidth = true;
 
 /** 🌟 极简兜底（配置文件中也没写时的最后防线） */
 const FALLBACK_DEFAULTS = {
@@ -606,20 +608,28 @@ function toHalfwidth(str) {
     return out;
 }
 
+/** 🌟 自动把输入框内容中的半角字符转为全角，并保留光标位置 */
+function applyAutoFullwidth() {
+    const text = els.textInput.value;
+    const converted = toFullwidth(text);
+    if (converted !== text) {
+        const start = els.textInput.selectionStart;
+        const end   = els.textInput.selectionEnd;
+        els.textInput.value = converted;
+        // 全角/半角是 1:1 替换，长度不变，光标位置可直接还原
+        els.textInput.setSelectionRange(start, end);
+    }
+}
+
 const RE_HALF_CONVERTIBLE = /[\x21-\x7E ]/;          // 可转为全角的半角字符
 const RE_FULL_CONVERTIBLE = /[\uFF01-\uFF5E\u3000]/; // 可转为半角的全角字符
 
-/** 根据当前文本更新按钮文案 */
+/** 🌟 按钮文字随自动全角开关切换 */
 function updateConvertBtn() {
-    const t = els.textInput.value;
-    if (RE_HALF_CONVERTIBLE.test(t)) {
-        els.convertBtn.textContent = '转全角';
-        els.convertBtn.dataset.mode = 'full';
-    } else if (RE_FULL_CONVERTIBLE.test(t)) {
+    if (autoFullwidth) {
         els.convertBtn.textContent = '转半角';
         els.convertBtn.dataset.mode = 'half';
     } else {
-        // 纯中文等无需转换的情况，保持默认
         els.convertBtn.textContent = '转全角';
         els.convertBtn.dataset.mode = 'full';
     }
@@ -1269,14 +1279,33 @@ function exportImage() {
    事件绑定
    ========================================================= */
 function bindEvents() {
-    // 文字变化：先按字数解析配置，再渲染
-    els.textInput.addEventListener('input', () => {
+    /* ---------- 🌟 文字输入：自动转全角（含 IME 保护） ---------- */
+    let isComposing = false;
+
+    els.textInput.addEventListener('compositionstart', () => {
+        isComposing = true;
+    });
+
+    els.textInput.addEventListener('compositionend', () => {
+        isComposing = false;
+        // 输入法合成结束，再执行一次自动转全角（合成期间 value 是拼音，不能转）
+        if (autoFullwidth) applyAutoFullwidth();
         updateConvertBtn();
         syncParamsFromText(false);
         scheduleRender();
     });
 
-    // 参数控件 -> rAF 节流渲染
+    els.textInput.addEventListener('input', () => {
+        // 合成期间跳过转换，避免打断输入法
+        if (!isComposing && autoFullwidth) {
+            applyAutoFullwidth();
+        }
+        updateConvertBtn();
+        syncParamsFromText(false);
+        scheduleRender();
+    });
+
+    /* ---------- 其他参数控件 ---------- */
     const inputs = [
         els.fontFamily,
         els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
@@ -1293,20 +1322,23 @@ function bindEvents() {
         });
     });
 
-    // 🌟 全角 / 半角 互转
+    /* ---------- 🌟 转全角 / 转半角 按钮 ---------- */
     els.convertBtn.addEventListener('click', () => {
-        const text = els.textInput.value;
-        if (RE_HALF_CONVERTIBLE.test(text)) {
-            els.textInput.value = toFullwidth(text);
-        } else if (RE_FULL_CONVERTIBLE.test(text)) {
-            els.textInput.value = toHalfwidth(text);
+        if (autoFullwidth) {
+            // 自动全角开启 → 关闭并转半角
+            els.textInput.value = toHalfwidth(els.textInput.value);
+            autoFullwidth = false;
+        } else {
+            // 自动全角关闭 → 开启并转全角
+            els.textInput.value = toFullwidth(els.textInput.value);
+            autoFullwidth = true;
         }
         updateConvertBtn();
         syncParamsFromText(false);
         scheduleRender();
     });
 
-    // 🌟 配置模式切换（田字格 / 自由）
+    /* ---------- 配置模式切换（田字格 / 自由） ---------- */
     els.modeSwitch.addEventListener('click', (e) => {
         const btn = e.target.closest('.mode-btn');
         if (!btn) return;
@@ -1317,7 +1349,6 @@ function bindEvents() {
     els.bgUpload.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
-
         const reader = new FileReader();
         reader.onload = (ev) => {
             setBackground(ev.target.result);
