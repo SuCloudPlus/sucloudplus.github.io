@@ -6,9 +6,7 @@
 <title>文本模板图片生成器</title>
 <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 
-<!-- ========================================== -->
-<!-- 🌟 全局配置 🌟 -->
-<!-- ========================================== -->
+<!-- 🌟 全局配置文件（已分离到 src/config.js） -->
 <script src="src/config.js"></script>
 
 <style>
@@ -24,6 +22,7 @@ body {
     color: #333;
 }
 
+/* 布局控制 */
 body.layout-bottom { flex-direction: column; }
 body.layout-top { flex-direction: column-reverse; }
 body.layout-left { flex-direction: row-reverse; }
@@ -42,11 +41,15 @@ body.layout-right { flex-direction: row; }
     min-height: 0;
 }
 
-#stage { position: relative; flex: 0 0 auto; }
+#stage {
+    position: relative;
+    flex: 0 0 auto;
+}
 
 #capture-container {
     position: absolute;
-    top: 0; left: 0;
+    top: 0;
+    left: 0;
     transform-origin: 0 0;
     overflow: hidden;
     box-shadow: 0 8px 24px rgba(0,0,0,0.15);
@@ -54,11 +57,13 @@ body.layout-right { flex-direction: row; }
 }
 
 #preview-canvas { display: block; }
+
 #bg-img { display: none; }
 
 .overflow-tip {
     position: absolute;
-    left: 50%; bottom: 14px;
+    left: 50%;
+    bottom: 14px;
     transform: translateX(-50%);
     display: none;
     background: rgba(231, 76, 60, 0.95);
@@ -187,6 +192,7 @@ button.primary {
 button.primary:hover { background: #27AE60; }
 button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
+/* 字号快速选择按钮 */
 .font-size-presets {
     display: flex;
     flex-wrap: nowrap;
@@ -195,6 +201,8 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 .font-size-presets > * {
     flex: 1 1 0;
     min-width: 0;
+    overflow: visible;
+    text-overflow: clip;
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -222,7 +230,8 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
 .image-list { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 5px; }
 .image-thumb {
-    width: 50px; height: 50px;
+    width: 50px;
+    height: 50px;
     object-fit: cover;
     border-radius: 4px;
     cursor: pointer;
@@ -232,6 +241,7 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 .image-thumb:hover { border-color: #5A9BE0; }
 .image-thumb.active { border-color: #2ECC71; }
 
+/* 字数配置命中提示 */
 .preset-info {
     font-size: 11px;
     color: #8a94a0;
@@ -241,40 +251,70 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 }
 .preset-info.hit { color: #2ECC71; font-weight: bold; }
 
-.switch-bar {
+/* ============================================================
+   🌟 模式切换 + 同字数多方案切换（同一行，高度固定，避免跳动）
+   ============================================================ */
+.preset-bar {
     display: flex;
     align-items: center;
     gap: 6px;
-    margin-top: 4px;
-    min-height: 26px;
     flex-wrap: nowrap;
+    min-height: 30px;
+    height: 30px;
     overflow-x: auto;
     overflow-y: hidden;
-    padding-bottom: 2px;
+    padding: 1px 0;
 }
-.switch-bar::-webkit-scrollbar { height: 4px; }
-.switch-bar::-webkit-scrollbar-thumb { background: #cfdbe8; border-radius: 2px; }
+.preset-bar::-webkit-scrollbar { height: 4px; }
+.preset-bar::-webkit-scrollbar-thumb { background: #ccd6e2; border-radius: 2px; }
+.preset-bar::-webkit-scrollbar-track { background: transparent; }
 
-.mode-bar,
+.mode-switch {
+    display: flex;
+    flex: 0 0 auto;
+    border: 1px solid #b8cce3;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.mode-btn {
+    padding: 3px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    border: none;
+    border-radius: 0;
+    background: #f5f9ff;
+    color: #4a6a8a;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: inherit;
+    transition: background .15s, color .15s;
+}
+.mode-btn:hover { background: #e4eefb; color: #2b5a8a; }
+.mode-btn.active {
+    background: #5A9BE0;
+    color: #fff;
+    font-weight: bold;
+}
+.mode-btn.active:hover { background: #5A9BE0; color: #fff; }
+
 .variant-bar {
     display: flex;
     gap: 6px;
+    flex-wrap: nowrap;
     flex: 0 0 auto;
-    align-items: center;
 }
-
 .variant-btn {
-    padding: 4px 10px;
+    padding: 3px 10px;
     font-size: 12px;
-    line-height: 1.4;
+    line-height: 1.5;
     border: 1px solid #b8cce3;
     background: #f5f9ff;
     color: #4a6a8a;
     border-radius: 4px;
     cursor: pointer;
+    white-space: nowrap;
     transition: background .15s, color .15s, border-color .15s;
     font-family: inherit;
-    white-space: nowrap;
 }
 .variant-btn:hover { background: #e4eefb; color: #2b5a8a; }
 .variant-btn.active {
@@ -282,10 +322,6 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     color: #fff;
     border-color: #2ECC71;
     font-weight: bold;
-}
-.variant-btn.mode-btn.active {
-    background: #5A9BE0;
-    border-color: #5A9BE0;
 }
 </style>
 </head>
@@ -306,11 +342,15 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     <div class="panel-section">
         <h3>1. 内容与背景</h3>
         <div class="form-group">
-            <label>输入文字 <button id="toggle-width" class="small" type="button">转全角</button></label>
+            <label>输入文字 <button id="convert-width" class="small" type="button">转全角</button></label>
             <textarea id="text-input">乘风破浪</textarea>
             <div class="preset-info" id="preset-info"></div>
-            <div class="switch-bar">
-                <div class="mode-bar" id="mode-bar"></div>
+            <!-- 🌟 模式切换 + 字数方案切换（同一行，固定高度） -->
+            <div class="preset-bar" id="preset-bar">
+                <div class="mode-switch" id="mode-switch">
+                    <button type="button" class="mode-btn active" data-mode="grid">田字格</button>
+                    <button type="button" class="mode-btn" data-mode="free">自由</button>
+                </div>
                 <div class="variant-bar" id="variant-bar"></div>
             </div>
         </div>
@@ -350,10 +390,12 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
     <div class="panel-section">
         <h3>3. 参数调节</h3>
+
         <div class="form-group">
             <label>字号快速选择</label>
             <div class="font-size-presets" id="font-size-presets"></div>
         </div>
+
         <div class="form-group">
             <label>字号大小: <span id="font-size-val">110</span> px</label>
             <input type="range" id="font-size" min="16" max="250">
@@ -406,52 +448,59 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     </div>
 </div>
 
+<!-- 背景图加载器（隐藏） -->
 <img id="bg-img" alt="">
 
 <script>
 /* =========================================================
+   全局配置引用
+   ========================================================= */
+const CONFIG = window.APP_CONFIG || {};
+const FREE_PARAMS = CONFIG.freeConfig || {};
+const GRID_PRESETS = (CONFIG.gridConfig && CONFIG.gridConfig.lengthPresets) || {};
+
+/* =========================================================
    常量与状态
    ========================================================= */
-const PREVIEW_DPR     = Math.min(2, window.devicePixelRatio || 1);
-const MAX_CANVAS_AREA = 16000000;
+const PREVIEW_DPR    = Math.min(2, window.devicePixelRatio || 1);
+const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
 
-let logicalW = CONFIG.logicalWidth;
-let logicalH = Math.round(CONFIG.logicalWidth * 9 / 16);
+/** 🌟 极简兜底（配置文件中也没写时的最后防线） */
+const FALLBACK_DEFAULTS = {
+    textColor: "#5586FF", lineColor: "#7BAFE8",
+    fontSize: 110, textRatio: 0.8, colGap: 0, lineGap: 0,
+    textYOffset: 0, blockOffsetY: 0,
+    borderWidth: 2.5, dashWidth: 2.5, dashDensity: 6,
+    resolution: 2,
+    grid: true, italic: false, bold: false, strike: false, font: ""
+};
+
+/** 参与合并的全部参数名 */
+const PARAM_KEYS = [
+    'textColor', 'lineColor', 'fontSize', 'textRatio', 'colGap', 'lineGap',
+    'textYOffset', 'blockOffsetY', 'borderWidth', 'dashWidth', 'dashDensity',
+    'resolution', 'grid', 'italic', 'bold', 'strike', 'font'
+];
+
+let logicalW = CONFIG.logicalWidth || 1067;
+let logicalH = Math.round((CONFIG.logicalWidth || 1067) * 9 / 16);
 
 let previewCtx = null;
 let rafPending = false;
 
+/** 字体加载结果：name -> true(成功) / false(失败) */
 const fontStatus = new Map();
+
+/** 🌟 同字数多方案：记住每个预设 key 下选中的方案索引 */
 const variantSelections = new Map();
-let currentMode = CONFIG.defaultMode || 'grid';
 
-/* =========================================================
-   硬兜底默认值
-   ========================================================= */
-const HARD_DEFAULTS = {
-    textColor    : '#000000',
-    lineColor    : '#888888',
-    fontSize     : 110,
-    textRatio    : 0.80,
-    colGap       : 0,
-    lineGap      : 0,
-    textYOffset  : 0,
-    blockOffsetY : 0,
-    borderWidth  : 2.5,
-    dashWidth    : 2.5,
-    dashDensity  : 6,
-    resolution   : 2,
-    charsPerLine : 0,
-    grid         : true,
-    italic       : false,
-    bold         : false,
-    strike       : false
-};
+/** 🌟 当前配置模式：'grid'（田字格） | 'free'（自由） */
+let currentMode = 'grid';
 
-const PARAM_KEYS = Object.keys(HARD_DEFAULTS).concat('font');
-
+/** 当前生效的"每行字数" */
 let currentCharsPerLine = 0;
+/** 上一次应用的配置标识 */
 let lastAppliedKey = undefined;
 
 /* =========================================================
@@ -467,9 +516,10 @@ const els = {
 
     textInput   : document.getElementById('text-input'),
     presetInfo  : document.getElementById('preset-info'),
-    modeBar     : document.getElementById('mode-bar'),
+    presetBar   : document.getElementById('preset-bar'),
+    modeSwitch  : document.getElementById('mode-switch'),
     variantBar  : document.getElementById('variant-bar'),
-    toggleWidth : document.getElementById('toggle-width'),
+    convertBtn  : document.getElementById('convert-width'),
     bgUpload    : document.getElementById('bg-upload'),
     bgListBox   : document.getElementById('bg-list-container'),
     imageList   : document.getElementById('image-list'),
@@ -508,32 +558,78 @@ const els = {
 };
 
 /* =========================================================
-   字符宽度判断
+   工具：字数 / 全半角
    ========================================================= */
-/** 半角字符：ASCII 0x20 ~ 0x7E */
-function isHalfWidthChar(ch) {
-    if (!ch) return false;
-    const code = ch.charCodeAt(0);
-    return code >= 0x20 && code <= 0x7E;
+
+/** 统计字数：忽略换行符 */
+function countTextChars(text) {
+    return String(text).replace(/[\r\n]/g, '').length;
 }
 
-/** 是否包含全角 ASCII 字符（用于切换按钮文字） */
-function isFullWidthString(text) {
-    for (let i = 0; i < text.length; i++) {
-        const code = text.charCodeAt(i);
-        if (code === 0x3000) return true;                    // 全角空格
-        if (code >= 0xFF01 && code <= 0xFF5E) return true;   // 全角 ASCII
+/** 字符视觉宽度因子：半角 0.5，全角 1 */
+function charWidthFactor(ch) {
+    if (!ch) return 1;
+    const code = ch.codePointAt(0);
+    if (code === 0x00A0) return 0.5;                    // 不间断空格
+    if (code <= 0x7F) return 0.5;                       // 半角 ASCII（含空格）
+    if (code >= 0xFF61 && code <= 0xFFDC) return 0.5;   // 半角片假名等
+    if (code >= 0xFFE8 && code <= 0xFFEE) return 0.5;   // 半角标点
+    return 1;
+}
+
+/** 是否空白字符（占位但不绘制格子/文字） */
+function isBlankChar(ch) {
+    return ch === ' ' || ch === '　' || ch === '\t' || ch === '\u00A0';
+}
+
+/** 半角 → 全角 */
+function toFullwidth(str) {
+    let out = '';
+    for (const ch of String(str)) {
+        const code = ch.codePointAt(0);
+        if (code === 32) out += String.fromCharCode(12288);
+        else if (code > 32 && code < 127) out += String.fromCharCode(code + 65248);
+        else out += ch;
     }
-    return false;
+    return out;
+}
+
+/** 全角 → 半角 */
+function toHalfwidth(str) {
+    let out = '';
+    for (const ch of String(str)) {
+        const code = ch.codePointAt(0);
+        if (code === 12288) out += ' ';
+        else if (code >= 0xFF01 && code <= 0xFF5E) out += String.fromCharCode(code - 65248);
+        else out += ch;
+    }
+    return out;
+}
+
+const RE_HALF_CONVERTIBLE = /[\x21-\x7E ]/;          // 可转为全角的半角字符
+const RE_FULL_CONVERTIBLE = /[\uFF01-\uFF5E\u3000]/; // 可转为半角的全角字符
+
+/** 根据当前文本更新按钮文案 */
+function updateConvertBtn() {
+    const t = els.textInput.value;
+    if (RE_HALF_CONVERTIBLE.test(t)) {
+        els.convertBtn.textContent = '转全角';
+        els.convertBtn.dataset.mode = 'full';
+    } else if (RE_FULL_CONVERTIBLE.test(t)) {
+        els.convertBtn.textContent = '转半角';
+        els.convertBtn.dataset.mode = 'half';
+    } else {
+        // 纯中文等无需转换的情况，保持默认
+        els.convertBtn.textContent = '转全角';
+        els.convertBtn.dataset.mode = 'full';
+    }
 }
 
 /* =========================================================
    按字数配置：解析与合并
    ========================================================= */
-function countTextChars(text) {
-    return String(text).replace(/[\r\n]/g, '').length;
-}
 
+/** 区间 key 归一化 */
 function normalizeRangeKey(key) {
     return String(key)
         .replace(/\s+/g, '')
@@ -541,6 +637,7 @@ function normalizeRangeKey(key) {
         .replace(/＋/g, '+');
 }
 
+/** 判断某个区间 key 是否匹配该字数 */
 function matchRangeKey(key, count) {
     const k = normalizeRangeKey(key);
     let m;
@@ -550,11 +647,10 @@ function matchRangeKey(key, count) {
     return false;
 }
 
+/** 找出该字数命中的配置 key（精确匹配优先，其次区间匹配） */
 function resolvePresetKey(count) {
-    const presets = CONFIG.lengthPresets || {};
-    const keys = Object.keys(presets);
-
-    if (Object.prototype.hasOwnProperty.call(presets, String(count))) {
+    const keys = Object.keys(GRID_PRESETS);
+    if (Object.prototype.hasOwnProperty.call(GRID_PRESETS, String(count))) {
         return String(count);
     }
     for (let i = 0; i < keys.length; i++) {
@@ -565,15 +661,16 @@ function resolvePresetKey(count) {
     return null;
 }
 
+/** 取某个 key 下的所有方案（统一返回数组） */
 function getVariantsForKey(key) {
     if (key === null) return [];
-    const presets = CONFIG.lengthPresets || {};
-    if (!Object.prototype.hasOwnProperty.call(presets, key)) return [];
-    const v = presets[key];
+    if (!Object.prototype.hasOwnProperty.call(GRID_PRESETS, key)) return [];
+    const v = GRID_PRESETS[key];
     if (v === undefined || v === null) return [];
     return Array.isArray(v) ? v : [v];
 }
 
+/** 取当前 key 下应使用的方案索引（带记忆 + 越界保护） */
 function getVariantIndex(key, count) {
     if (count <= 1) return 0;
     const saved = variantSelections.get(key);
@@ -581,44 +678,24 @@ function getVariantIndex(key, count) {
     return 0;
 }
 
-function getModeName(modeKey) {
-    const list = CONFIG.modes || [];
-    const hit = list.find(m => m.key === modeKey);
-    return hit ? hit.name : modeKey;
-}
-
 /**
- * 构建基础参数层：
- *   free 模式：HARD_DEFAULTS + freeConfig
- *   grid 模式：HARD_DEFAULTS + freeConfig + gridConfig（田字格由自由配置兜底）
+ * 🌟 合并参数
+ *   - 田字格模式：preset（田字格配置） > freeConfig（自由配置兜底） > FALLBACK_DEFAULTS
+ *   - 自由模式  ：freeConfig（自由配置） > FALLBACK_DEFAULTS
  */
-function getBaseParams(mode) {
-    const out = Object.assign({}, HARD_DEFAULTS, CONFIG.freeConfig || {});
-    if (mode === 'grid') {
-        Object.assign(out, CONFIG.gridConfig || {});
-    }
-    return out;
-}
-
-/**
- * 合并参数
- * 优先级：字数方案 > 模式配置（gridConfig / freeConfig）> 硬兜底
- * ✅ 修复关键：preset 中只要写了某字段，就一定优先于模式配置
- */
-function mergeParams(preset, mode) {
-    const base = getBaseParams(mode);
-    if (!preset) return base;
-
-    const out = Object.assign({}, base);
+function mergeParams(preset) {
+    const out = {};
     for (let i = 0; i < PARAM_KEYS.length; i++) {
         const k = PARAM_KEYS[i];
-        if (preset[k] !== undefined) {
-            out[k] = preset[k];
-        }
+        let v = preset ? preset[k] : undefined;
+        if (v === undefined || v === null || v === '') v = FREE_PARAMS[k];
+        if (v === undefined || v === null || v === '') v = FALLBACK_DEFAULTS[k];
+        out[k] = v;
     }
     return out;
 }
 
+/** 根据字数方案计算每行字数（显式 charsPerLine 优先，其次 rows 自动推算） */
 function resolveCharsPerLine(text, preset) {
     if (!preset) return 0;
 
@@ -634,9 +711,11 @@ function resolveCharsPerLine(text, preset) {
             if (n > 0) return Math.ceil(n / rows);
         }
     }
+
     return 0;
 }
 
+/** 把合并后的参数写回界面控件 */
 function applyParamsToUI(p) {
     els.textColor.value    = p.textColor;
     els.lineColor.value    = p.lineColor;
@@ -664,55 +743,36 @@ function applyParamsToUI(p) {
     updatePresetActive(els.fontSize.value);
 }
 
-function updatePresetInfo(count, key, preset, idx, total) {
+/** 更新"字数配置命中"提示 */
+function updatePresetInfo(count, key, preset, idx, total, isFree) {
     const box = els.presetInfo;
     if (!box) return;
 
-    const modeName = getModeName(currentMode);
+    if (isFree) {
+        box.classList.add('hit');
+        box.textContent = `共 ${count} 字 · 自由配置（换行由回车决定）`;
+        return;
+    }
 
     if (key === null) {
         box.classList.remove('hit');
-        box.textContent = `共 ${count} 字 · ${modeName} · 未匹配到字数配置，使用默认配置`;
+        box.textContent = `共 ${count} 字 · 未匹配到字数配置，使用自由配置兜底`;
         return;
     }
 
     box.classList.add('hit');
     const name = (preset && preset.name) ? preset.name : key;
     const idxLabel = total > 1 ? `（方案 ${idx + 1}/${total}）` : '';
-    box.textContent = `共 ${count} 字 · ${modeName} · 命中配置「${key}」· ${name}${idxLabel}`;
+    box.textContent = `共 ${count} 字 · 命中配置「${key}」· ${name}${idxLabel}`;
 }
 
-function buildSwitchButtons(variants, currentIdx, key) {
-    /* ---- 模式按钮 ---- */
-    const modeBox = els.modeBar;
-    if (modeBox) {
-        modeBox.innerHTML = '';
-        const modes = (CONFIG.modes && CONFIG.modes.length)
-            ? CONFIG.modes
-            : [{ key: 'grid', name: '田字格' }, { key: 'free', name: '自由' }];
-
-        modes.forEach(m => {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'variant-btn mode-btn' + (m.key === currentMode ? ' active' : '');
-            btn.textContent = m.name;
-            btn.title = `切换到「${m.name}」配置`;
-            btn.addEventListener('click', () => {
-                if (currentMode === m.key) return;
-                currentMode = m.key;
-                syncParamsFromText(true);
-                scheduleRender();
-            });
-            modeBox.appendChild(btn);
-        });
-    }
-
-    /* ---- 同字数多方案按钮 ---- */
+/** 🌟 同字数多方案切换按钮 */
+function buildVariantButtons(variants, currentIdx, key) {
     const box = els.variantBar;
     if (!box) return;
-    box.innerHTML = '';
 
-    if (variants.length <= 1) return;
+    box.innerHTML = '';
+    if (!variants || variants.length <= 1) return;
 
     variants.forEach((v, i) => {
         const btn = document.createElement('button');
@@ -721,6 +781,7 @@ function buildSwitchButtons(variants, currentIdx, key) {
         btn.textContent = v.name || `方案 ${i + 1}`;
         btn.addEventListener('click', () => {
             variantSelections.set(key, i);
+            lastAppliedKey = undefined;   // 强制重新应用
             syncParamsFromText(true);
             scheduleRender();
         });
@@ -728,31 +789,72 @@ function buildSwitchButtons(variants, currentIdx, key) {
     });
 }
 
+/**
+ * 根据当前文字内容与模式解析配置。
+ * - 命中方案变化（或 force）时把参数写回界面
+ * - charsPerLine 每次都刷新
+ */
 function syncParamsFromText(force) {
     const text  = els.textInput.value;
     const count = countTextChars(text);
-    const key   = resolvePresetKey(count);
 
+    /* ---------- 自由模式：完全使用兜底参数 ---------- */
+    if (currentMode === 'free') {
+        currentCharsPerLine = 0;                 // 换行完全由回车决定
+        const merged = mergeParams(null);
+
+        if (force || lastAppliedKey !== 'free') {
+            lastAppliedKey = 'free';
+            applyParamsToUI(merged);
+        }
+
+        updatePresetInfo(count, null, null, 0, 0, true);
+        buildVariantButtons([], 0, null);
+        return merged;
+    }
+
+    /* ---------- 田字格模式 ---------- */
+    const key      = resolvePresetKey(count);
     const variants = getVariantsForKey(key);
     const idx      = getVariantIndex(key, variants.length);
     const preset   = variants.length > 0 ? variants[idx] : null;
 
     currentCharsPerLine = resolveCharsPerLine(text, preset);
 
-    // ✅ 合并：字数方案优先，模式配置仅作为兜底
-    const merged = mergeParams(preset, currentMode);
+    const merged = mergeParams(preset);
 
-    const uiKey = `${currentMode}|${key === null ? 'default' : key}#${idx}`;
+    const uiKey = `grid#${key === null ? 'default' : key}#${idx}`;
     if (force || uiKey !== lastAppliedKey) {
         lastAppliedKey = uiKey;
         applyParamsToUI(merged);
     }
 
-    updatePresetInfo(count, key, preset, idx, variants.length);
-    buildSwitchButtons(variants, idx, key);
+    updatePresetInfo(count, key, preset, idx, variants.length, false);
+    buildVariantButtons(variants, idx, key);
     return merged;
 }
 
+/** 🌟 切换配置模式 */
+function setMode(mode) {
+    if (mode !== 'grid' && mode !== 'free') return;
+    if (currentMode === mode) return;
+
+    currentMode = mode;
+    lastAppliedKey = undefined;
+
+    Array.from(els.modeSwitch.querySelectorAll('.mode-btn')).forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+
+    syncParamsFromText(true);
+    scheduleRender();
+}
+
+/**
+ * 自动换行：
+ *   1) 先按回车分行
+ *   2) charsPerLine > 0 时，再对每一行按每行字数切分
+ */
 function layoutLines(text, charsPerLine) {
     const lines = String(text).split(/\r?\n/);
     const cpl = Math.floor(Number(charsPerLine)) || 0;
@@ -776,8 +878,10 @@ async function loadFontCSS(main, fallback) {
     const tryLoad = async (url) => {
         const res = await fetch(url, { method: 'GET', mode: 'cors' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
+
         const cssText = await res.text();
         const baseUrl = url.replace(/[^/]*\.css$/, '');
+
         const rewritten = cssText.replace(
             /url\(\s*(['"]?)([^'")]+)\1\s*\)/g,
             (match, quote, u) => {
@@ -785,6 +889,7 @@ async function loadFontCSS(main, fallback) {
                 return `url("${baseUrl}${u.replace(/^\.\//, '')}")`;
             }
         );
+
         const style = document.createElement('style');
         style.textContent = rewritten;
         document.head.appendChild(style);
@@ -796,8 +901,13 @@ async function loadFontCSS(main, fallback) {
     } catch (e) {
         console.warn('主字体加载失败:', main, e);
         if (fallback) {
-            try { await tryLoad(fallback); return true; }
-            catch (e2) { console.error('备用字体加载失败:', fallback, e2); return false; }
+            try {
+                await tryLoad(fallback);
+                return true;
+            } catch (e2) {
+                console.error('备用字体加载失败:', fallback, e2);
+                return false;
+            }
         }
         return false;
     }
@@ -809,9 +919,13 @@ async function loadAllOnlineFonts() {
         const ok = await loadFontCSS(f.mainCss, f.fallbackCss);
         fontStatus.set(f.name, ok);
     }));
-    await Promise.all(CONFIG.availableFonts.map(name =>
-        document.fonts ? document.fonts.load(`16px "${name}"`).catch(() => {}) : Promise.resolve()
+
+    await Promise.all((CONFIG.availableFonts || []).map(name =>
+        document.fonts
+            ? document.fonts.load(`16px "${name}"`).catch(() => {})
+            : Promise.resolve()
     ));
+
     if (document.fonts && document.fonts.ready) {
         try { await document.fonts.ready; } catch (_) {}
     }
@@ -838,6 +952,7 @@ function updateCanvasSize() {
 
     els.canvas.style.width  = logicalW + 'px';
     els.canvas.style.height = logicalH + 'px';
+
     els.container.style.width  = logicalW + 'px';
     els.container.style.height = logicalH + 'px';
 
@@ -846,13 +961,16 @@ function updateCanvasSize() {
 
 function fitStage() {
     if (!logicalW || !logicalH) return;
+
     const pad = 40;
     const availW = Math.max(50, els.previewArea.clientWidth  - pad);
     const availH = Math.max(50, els.previewArea.clientHeight - pad);
+
     const scale = Math.min(availW / logicalW, availH / logicalH, 1);
 
     els.stage.style.width  = (logicalW * scale) + 'px';
     els.stage.style.height = (logicalH * scale) + 'px';
+
     els.container.style.transform = `scale(${scale})`;
 }
 
@@ -895,12 +1013,13 @@ function updateLabels(p) {
 }
 
 /* =========================================================
-   核心绘制 —— 支持半角字符半宽渲染
+   核心绘制
    ========================================================= */
 function drawScene(ctx, W, H, p) {
     ctx.save();
     ctx.clearRect(0, 0, W, H);
 
+    // 背景
     if (els.bgImg.complete && els.bgImg.naturalWidth > 0) {
         ctx.drawImage(els.bgImg, 0, 0, W, H);
     } else {
@@ -908,28 +1027,29 @@ function drawScene(ctx, W, H, p) {
         ctx.fillRect(0, 0, W, H);
     }
 
-    const boxSize  = p.size / p.ratio;   // 全角字符格子宽高
-    const halfBoxW = boxSize / 2;        // 半角字符格子宽
+    // 布局
+    const boxSize  = p.size / p.ratio;
     const lineStep = boxSize + p.lineGap;
-    const halfH    = boxSize / 2;
 
-    const lines = layoutLines(p.text, p.charsPerLine);
+    // 分行 + 拆分字符
+    const lines = layoutLines(p.text, p.charsPerLine).map(l => Array.from(l));
 
-    // 每行宽度（半角算一半）
-    const lineWidths = lines.map(line => {
+    // 🌟 逐行宽度（半角字符占 0.5 个格子宽）
+    const lineWidths = lines.map(chars => {
         let w = 0;
-        for (let i = 0; i < line.length; i++) {
-            w += isHalfWidthChar(line[i]) ? halfBoxW : boxSize;
-            if (i < line.length - 1) w += p.colGap;
+        for (let i = 0; i < chars.length; i++) {
+            w += boxSize * charWidthFactor(chars[i]);
         }
+        if (chars.length > 1) w += (chars.length - 1) * p.colGap;
         return w;
     });
-    const maxLen = lineWidths.length > 0 ? Math.max(...lineWidths) : 0;
 
+    const totalW = lineWidths.reduce((m, w) => Math.max(m, w), 0);
     const totalH = lines.length > 0
         ? lines.length * boxSize + (lines.length - 1) * p.lineGap
         : 0;
 
+    // 整体上下居中调节
     const startY = (H - totalH) / 2 + p.blockOffsetY;
 
     const fontStr =
@@ -940,80 +1060,66 @@ function drawScene(ctx, W, H, p) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
+    // 逐行逐字绘制
     for (let r = 0; r < lines.length; r++) {
-        const line = lines[r];
-        if (line.length === 0) continue;
+        const chars = lines[r];
+        if (chars.length === 0) continue;
 
-        const lineW = lineWidths[r];
-        let x = (W - lineW) / 2;
         const y = startY + r * lineStep;
+        let x = (W - lineWidths[r]) / 2;
 
-        for (let c = 0; c < line.length; c++) {
-            const ch = line[c];
-            const isHalf = isHalfWidthChar(ch);
-            const charW = isHalf ? halfBoxW : boxSize;
+        for (let c = 0; c < chars.length; c++) {
+            const ch = chars[c];
+            const cw = boxSize * charWidthFactor(ch);   // 🌟 半角格子只有一半宽
 
-            // 空格占位不画
-            if (ch === ' ' || ch === '　' || ch === '\t' || ch === '\u00A0') {
-                x += charW + p.colGap;
-                continue;
-            }
-
-            // 外框
-            if (p.grid && p.borderWidth > 0) {
-                ctx.strokeStyle = p.lineColor;
-                ctx.lineWidth   = p.borderWidth;
-                ctx.strokeRect(x, y, charW, boxSize);
-            }
-
-            // 内虚线（田字格）
-            if (p.grid && p.dashWidth > 0 && p.dashDensity > 0) {
-                ctx.save();
-                ctx.strokeStyle = p.lineColor;
-                ctx.lineWidth   = p.dashWidth;
-                ctx.setLineDash([p.dashDensity, p.dashDensity]);
-
-                const cx = x + charW / 2;
-                const cy = y + halfH;
-                ctx.beginPath();
-                // 横线
-                ctx.moveTo(x, cy);
-                ctx.lineTo(x + charW, cy);
-                // 竖线
-                ctx.moveTo(cx, y);
-                ctx.lineTo(cx, y + boxSize);
-                // 斜线（仅全角画，半角太窄不画）
-                if (!isHalf) {
-                    ctx.moveTo(x, y);
-                    ctx.lineTo(x + charW, y + boxSize);
-                    ctx.moveTo(x + charW, y);
-                    ctx.lineTo(x, y + boxSize);
+            if (!isBlankChar(ch)) {
+                // 外框
+                if (p.grid && p.borderWidth > 0) {
+                    ctx.strokeStyle = p.lineColor;
+                    ctx.lineWidth   = p.borderWidth;
+                    ctx.strokeRect(x, y, cw, boxSize);
                 }
-                ctx.stroke();
-                ctx.restore();
+
+                // 内虚线
+                if (p.grid && p.dashWidth > 0 && p.dashDensity > 0) {
+                    ctx.save();
+                    ctx.strokeStyle = p.lineColor;
+                    ctx.lineWidth   = p.dashWidth;
+                    ctx.setLineDash([p.dashDensity, p.dashDensity]);
+
+                    const cx = x + cw / 2;
+                    const cy = y + boxSize / 2;
+                    ctx.beginPath();
+                    ctx.moveTo(x, cy);              ctx.lineTo(x + cw, cy);
+                    ctx.moveTo(cx, y);              ctx.lineTo(cx, y + boxSize);
+                    ctx.moveTo(x, y);               ctx.lineTo(x + cw, y + boxSize);
+                    ctx.moveTo(x + cw, y);          ctx.lineTo(x, y + boxSize);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+
+                // 文字
+                const tx = x + cw / 2;
+                const ty = y + boxSize / 2 + p.yOffset;
+                ctx.fillStyle = p.textColor;
+                ctx.fillText(ch, tx, ty);
+
+                // 删除线
+                if (p.strike) {
+                    const tw = Math.min(ctx.measureText(ch).width, cw);
+                    const lh = Math.max(1, p.size * 0.06);
+                    ctx.fillRect(tx - tw / 2, ty - lh / 2, tw, lh);
+                }
             }
 
-            // 文字（居中）
-            const tx = x + charW / 2;
-            const ty = y + halfH + p.yOffset;
-            ctx.fillStyle = p.textColor;
-            ctx.fillText(ch, tx, ty);
-
-            // 删除线
-            if (p.strike) {
-                const tw = ctx.measureText(ch).width;
-                const lh = Math.max(1, p.size * 0.06);
-                ctx.fillRect(tx - tw / 2, ty - lh / 2, tw, lh);
-            }
-
-            x += charW + p.colGap;
+            x += cw + p.colGap;
         }
     }
 
     ctx.restore();
 
     return {
-        overflow: maxLen > W + 0.5 || totalH > H + 0.5
+        overflow: totalW > W + 0.5 || totalH > H + 0.5
     };
 }
 
@@ -1023,10 +1129,12 @@ function drawScene(ctx, W, H, p) {
 function render() {
     const p = readParams();
     updateLabels(p);
+
     if (!previewCtx || !logicalW || !logicalH) return;
 
     previewCtx.setTransform(PREVIEW_DPR, 0, 0, PREVIEW_DPR, 0, 0);
     const { overflow } = drawScene(previewCtx, logicalW, logicalH, p);
+
     els.overflowTip.style.display = overflow ? 'block' : 'none';
 }
 
@@ -1048,7 +1156,7 @@ function setBackground(url) {
         const natH = els.bgImg.naturalHeight;
         if (!natW || !natH) return;
 
-        logicalW = CONFIG.logicalWidth;
+        logicalW = CONFIG.logicalWidth || 1067;
         logicalH = Math.max(1, Math.round(logicalW * (natH / natW)));
 
         updateCanvasSize();
@@ -1096,43 +1204,6 @@ function updatePresetActive(value) {
 }
 
 /* =========================================================
-   转全角 / 转半角
-   ========================================================= */
-function updateToggleButton() {
-    if (!els.toggleWidth) return;
-    els.toggleWidth.textContent = isFullWidthString(els.textInput.value) ? '转半角' : '转全角';
-}
-
-function toggleFullWidth() {
-    const text = els.textInput.value;
-    const hasFullWidth = isFullWidthString(text);
-    let out = '';
-
-    if (hasFullWidth) {
-        // 全角 → 半角
-        for (let i = 0; i < text.length; i++) {
-            const code = text.charCodeAt(i);
-            if (code === 0x3000) out += ' ';
-            else if (code >= 0xFF01 && code <= 0xFF5E) out += String.fromCharCode(code - 0xFEE0);
-            else out += text[i];
-        }
-    } else {
-        // 半角 → 全角
-        for (let i = 0; i < text.length; i++) {
-            const code = text.charCodeAt(i);
-            if (code === 0x20) out += String.fromCharCode(0x3000);
-            else if (code > 0x20 && code < 0x7F) out += String.fromCharCode(code + 0xFEE0);
-            else out += text[i];
-        }
-    }
-
-    els.textInput.value = out;
-    updateToggleButton();
-    syncParamsFromText(false);
-    scheduleRender();
-}
-
-/* =========================================================
    导出
    ========================================================= */
 function exportImage() {
@@ -1175,7 +1246,11 @@ function exportImage() {
     };
 
     canvas.toBlob((blob) => {
-        if (!blob) { alert('导出失败，请重试。'); finish(); return; }
+        if (!blob) {
+            alert('导出失败，请重试。');
+            finish();
+            return;
+        }
 
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1194,12 +1269,14 @@ function exportImage() {
    事件绑定
    ========================================================= */
 function bindEvents() {
+    // 文字变化：先按字数解析配置，再渲染
     els.textInput.addEventListener('input', () => {
-        updateToggleButton();
+        updateConvertBtn();
         syncParamsFromText(false);
         scheduleRender();
     });
 
+    // 参数控件 -> rAF 节流渲染
     const inputs = [
         els.fontFamily,
         els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
@@ -1216,13 +1293,31 @@ function bindEvents() {
         });
     });
 
-    if (els.toggleWidth) {
-        els.toggleWidth.addEventListener('click', toggleFullWidth);
-    }
+    // 🌟 全角 / 半角 互转
+    els.convertBtn.addEventListener('click', () => {
+        const text = els.textInput.value;
+        if (RE_HALF_CONVERTIBLE.test(text)) {
+            els.textInput.value = toFullwidth(text);
+        } else if (RE_FULL_CONVERTIBLE.test(text)) {
+            els.textInput.value = toHalfwidth(text);
+        }
+        updateConvertBtn();
+        syncParamsFromText(false);
+        scheduleRender();
+    });
 
+    // 🌟 配置模式切换（田字格 / 自由）
+    els.modeSwitch.addEventListener('click', (e) => {
+        const btn = e.target.closest('.mode-btn');
+        if (!btn) return;
+        setMode(btn.dataset.mode);
+    });
+
+    // 上传背景
     els.bgUpload.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
+
         const reader = new FileReader();
         reader.onload = (ev) => {
             setBackground(ev.target.result);
@@ -1245,14 +1340,9 @@ function bindEvents() {
    启动
    ========================================================= */
 async function initApp() {
-    if (typeof CONFIG === 'undefined' || !CONFIG) {
-        alert('配置加载失败：请确认 src/config.js 存在且路径正确。');
-        return;
-    }
-
     document.body.className = `layout-${CONFIG.panelPosition || 'right'}`;
-    currentMode = CONFIG.defaultMode || 'grid';
 
+    // 1. 字体下拉框
     (CONFIG.availableFonts || []).forEach(font => {
         const opt = document.createElement('option');
         opt.value = font;
@@ -1261,21 +1351,34 @@ async function initApp() {
         els.fontFamily.appendChild(opt);
     });
 
+    // 2. 字号快捷按钮
     buildPresetButtons();
+
+    // 3. 模式按钮初始态（默认田字格）
+    Array.from(els.modeSwitch.querySelectorAll('.mode-btn')).forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === currentMode);
+    });
+
+    // 4. 依据当前文字解析配置并应用
+    updateConvertBtn();
     syncParamsFromText(true);
-    updateToggleButton();
+
+    // 5. 事件
     bindEvents();
 
+    // 6. 首屏
     updateCanvasSize();
     fitStage();
     render();
 
+    // 7. 预设背景缩略图
     let defaultBg = CONFIG.bgImageUrl;
-    if (CONFIG.bgImageFolder && CONFIG.bgImageFolder.length > 0) {
+    const folder = CONFIG.bgImageFolder || [];
+    if (folder.length > 0) {
         els.bgListBox.style.display = 'block';
-        if (!defaultBg) defaultBg = CONFIG.bgImageFolder[0];
+        if (!defaultBg) defaultBg = folder[0];
 
-        CONFIG.bgImageFolder.forEach(url => {
+        folder.forEach(url => {
             const img = document.createElement('img');
             img.src = url;
             img.className = 'image-thumb';
@@ -1293,8 +1396,10 @@ async function initApp() {
         });
     }
 
+    // 8. 背景图
     if (defaultBg) setBackground(defaultBg);
 
+    // 9. 在线字体
     loadAllOnlineFonts().then(() => {
         markFontOptions();
         render();
