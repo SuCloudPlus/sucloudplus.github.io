@@ -33,6 +33,7 @@ window.APP_CONFIG = {
 
     availableFonts: [
         "方正正中黑简体",
+        "方正正中黑_GBK",
         "得意黑",
         "Microsoft YaHei",
         "SimSun",
@@ -46,6 +47,11 @@ window.APP_CONFIG = {
         {
             name: "方正正中黑简体",
             mainCss: "https://sucloudplus.github.io/fonts/FZZhengHeiS-DB-GB/stylesheet.css",
+            fallbackCss: ""
+        },
+        {
+            name: "方正正中黑_GBK",
+            mainCss: "https://sucloudplus.github.io/fonts/FZZhengHei-DB-GBK/stylesheet.css",
             fallbackCss: ""
         },
         {
