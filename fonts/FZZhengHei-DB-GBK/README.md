@@ -5,3 +5,5 @@
 文件来源：2026年11月16日，从网站 https://fontsconverter.com/ 转换而来，原文件 FZZZHONGK_0.TTF 来自方正字库软件
 
 文件版本：1.30
+
+官方链接：https://www.foundertype.com/index.php/FontInfo/ductdetail/id/194#
