@@ -46,18 +46,18 @@ window.APP_CONFIG = {
     onlineFonts: [
         {
             name: "方正正中黑简体",
-            mainCss: "https://sucloudplus.github.io/fonts/FZZhengHeiS-DB-GB/stylesheet.css",
+            mainCss: "https://sucloudplus.github.io/fonts/fzzhengheis-db-gb/stylesheet.css",
             fallbackCss: ""
         },
         {
             name: "方正正中黑_GBK",
-            mainCss: "https://sucloudplus.github.io/fonts/FZZhengHei-DB-GBK/stylesheet.css",
+            mainCss: "https://sucloudplus.github.io/fonts/fzzhenghei-db-gbk/stylesheet.css",
             fallbackCss: ""
         },
         {
             name: "得意黑",
             mainCss: "https://fontsapi.zeoseven.com/92/main/result.css",
-            fallbackCss: "https://fontsapi-storage.zeoseven.com/92/main/result.css"
+            fallbackCss: "https://sucloudplus.github.io/fonts/smiley-sans/stylesheet.css"
         }
     ],
 
