@@ -1,0 +1,13 @@
+@font-face {
+  font-family: 'fzzhengHei-db-gbk';
+  src:        url('fzzhengHei-db-gbk.woff2') format('woff2'),
+       url('fzzhengHei-db-gbk.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Usage example:
+body {
+  font-family: 'fzzhengHei-db-gbk', sans-serif;
+} */
