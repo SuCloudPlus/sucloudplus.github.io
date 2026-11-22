@@ -37,7 +37,7 @@ window.APP_CONFIG = {
     availableFonts: [
         { label: "方正正中黑简体", value: "FZZhengHeiS-DB-GB" },
         { label: "方正正中黑_GBK", value: "FZZhengHei-DB-GBK" },
-        { label: "得意黑", value: "Smiley Sans" },
+        { label: "得意黑", value: "Smiley Sans Oblique" },
         { label: "微软雅黑", value: "Microsoft YaHei" },
         { label: "宋体", value: "SimSun" },
         { label: "楷体", value: "KaiTi" },
@@ -45,7 +45,7 @@ window.APP_CONFIG = {
         { label: "无衬线字体", value: "sans-serif" }
     ],
 
-    // 在线字体（自动下载 CSS 并注入；name 对应真实 font-family）
+    // 在线字体：默认只预加载前 3 项，其余在选中该字体时按需加载
     onlineFonts: [
         {
             name: "FZZhengHeiS-DB-GB",
@@ -58,7 +58,7 @@ window.APP_CONFIG = {
             fallbackCss: ""
         },
         {
-            name: "Smiley Sans",
+            name: "Smiley Sans Oblique",
             mainCss: "https://fontsapi.zeoseven.com/92/main/result.css",
             fallbackCss: "https://sucloudplus.github.io/fonts/smiley-sans/stylesheet.css"
         }
