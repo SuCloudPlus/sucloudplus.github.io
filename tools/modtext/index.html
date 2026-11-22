@@ -465,6 +465,8 @@ const GRID_PRESETS = (CONFIG.gridConfig && CONFIG.gridConfig.lengthPresets) || {
 const PREVIEW_DPR    = Math.min(2, window.devicePixelRatio || 1);
 const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
+const INITIAL_ONLINE_FONT_LIMIT = 3;       // 🌟 启动时最多预加载前 3 个在线字体
+
 /** 🌟 自动全角开关（默认开启） */
 let autoFullwidth = true;
 
@@ -493,6 +495,8 @@ let rafPending = false;
 
 /** 字体加载结果：真实 font-family (value) -> true(成功) / false(失败) */
 const fontStatus = new Map();
+/** 字体 CSS 拉取 Promise 缓存，防止重复下载 */
+const fontLoadPromises = new Map();
 
 /** 🌟 同字数多方案：记住每个预设 key 下选中的方案索引 */
 const variantSelections = new Map();
@@ -764,8 +768,14 @@ function applyParamsToUI(p) {
     els.styleStrike.checked = !!p.strike;
 
     if (p.font) {
-        const exists = Array.from(els.fontFamily.options).some(o => o.value === p.font);
-        if (exists) els.fontFamily.value = p.font;
+        const targetFontValue = normalizeFontItem(p.font).value;
+        const exists = Array.from(els.fontFamily.options).some(o => o.value === targetFontValue);
+        if (exists) {
+            els.fontFamily.value = targetFontValue;
+            ensureOnlineFontLoaded(targetFontValue, els.textInput.value).then(() => {
+                scheduleRender();
+            });
+        }
     }
 
     updatePresetActive(els.fontSize.value);
@@ -900,7 +910,7 @@ function layoutLines(text, charsPerLine) {
 }
 
 /* =========================================================
- * 字体 CSS 异步加载
+ * 字体 CSS 异步加载与按需加载
  * ========================================================= */
 async function loadFontCSS(main, fallback) {
     const tryLoad = async (url) => {
@@ -941,27 +951,74 @@ async function loadFontCSS(main, fallback) {
     }
 }
 
-async function loadAllOnlineFonts() {
+/**
+ * 🌟 按需加载单个在线字体，并传入样本文字以触发 unicode-range 分片请求
+ */
+async function ensureOnlineFontLoaded(fontValue, sampleText = '') {
+    if (!fontValue) return true;
+
     const list = CONFIG.onlineFonts || [];
-    await Promise.all(list.map(async (f) => {
-        const fontFamilyValue = f.value || f.name;
-        const ok = await loadFontCSS(f.mainCss, f.fallbackCss);
-        fontStatus.set(fontFamilyValue, ok);
+    const entry = list.find(f => (f.value || f.name) === fontValue);
+    const chars = String(sampleText || (els.textInput ? els.textInput.value : '') || '').replace(/[\r\n]/g, '');
+
+    if (!entry) {
+        if (document.fonts) {
+            try {
+                await (chars
+                    ? document.fonts.load(`16px "${fontValue}"`, chars)
+                    : document.fonts.load(`16px "${fontValue}"`));
+            } catch (_) {}
+        }
+        return true;
+    }
+
+    if (!fontLoadPromises.has(fontValue)) {
+        const promise = (async () => {
+            const ok = await loadFontCSS(entry.mainCss, entry.fallbackCss);
+            fontStatus.set(fontValue, ok);
+            return ok;
+        })();
+        fontLoadPromises.set(fontValue, promise);
+    }
+
+    const cssOk = await fontLoadPromises.get(fontValue);
+
+    if (cssOk && document.fonts) {
+        try {
+            await (chars
+                ? document.fonts.load(`16px "${fontValue}"`, chars)
+                : document.fonts.load(`16px "${fontValue}"`));
+            if (document.fonts.ready) {
+                await document.fonts.ready;
+            }
+        } catch (_) {}
+    }
+
+    markFontOptions();
+    return cssOk;
+}
+
+/**
+ * 🌟 启动时仅加载前 3 个在线字体，其余在选中时再加载
+ */
+async function loadInitialOnlineFonts() {
+    const list = CONFIG.onlineFonts || [];
+    const topThree = list.slice(0, INITIAL_ONLINE_FONT_LIMIT);
+    const currentText = els.textInput ? els.textInput.value : '';
+
+    await Promise.all(topThree.map(async (f) => {
+        const fontValue = f.value || f.name;
+        await ensureOnlineFontLoaded(fontValue, currentText);
     }));
 
-    const availableValues = getNormalizedFonts().map(f => f.value);
-    await Promise.all(availableValues.map(fontValue =>
-        document.fonts
-            ? document.fonts.load(`16px "${fontValue}"`).catch(() => {})
-            : Promise.resolve()
-    ));
-
-    if (document.fonts && document.fonts.ready) {
-        try { await document.fonts.ready; } catch (_) {}
+    const activeFont = els.fontFamily ? els.fontFamily.value : '';
+    if (activeFont && !topThree.some(f => (f.value || f.name) === activeFont)) {
+        await ensureOnlineFontLoaded(activeFont, currentText);
     }
 }
 
 function markFontOptions() {
+    if (!els.fontFamily) return;
     Array.from(els.fontFamily.options).forEach(opt => {
         const fontValue = opt.value;
         const baseLabel = opt.dataset.label || opt.textContent.replace(/（加载失败）$/, '');
@@ -1240,7 +1297,7 @@ function updatePresetActive(value) {
 /* =========================================================
  * 导出
  * ========================================================= */
-function exportImage() {
+async function exportImage() {
     if (!logicalW || !logicalH) return;
 
     if (!els.bgImg.complete || els.bgImg.naturalWidth === 0) {
@@ -1250,6 +1307,9 @@ function exportImage() {
     const originalText = els.exportBtn.textContent;
     els.exportBtn.disabled = true;
     els.exportBtn.textContent = '导出中...';
+
+    const p = readParams();
+    await ensureOnlineFontLoaded(p.font, p.text);
 
     let scale = parseFloat(els.resolution.value) || 2;
     scale = Math.max(1, Math.min(5, scale));
@@ -1271,7 +1331,6 @@ function exportImage() {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
-    const p = readParams();
     drawScene(ctx, logicalW, logicalH, p);
 
     const finish = () => {
@@ -1306,32 +1365,47 @@ function bindEvents() {
     /* ---------- 🌟 文字输入：自动转全角（含 IME 保护） ---------- */
     let isComposing = false;
 
+    const handleTextUpdate = () => {
+        updateConvertBtn();
+        syncParamsFromText(false);
+        scheduleRender();
+        ensureOnlineFontLoaded(els.fontFamily.value, els.textInput.value).then(() => {
+            scheduleRender();
+        });
+    };
+
     els.textInput.addEventListener('compositionstart', () => {
         isComposing = true;
     });
 
     els.textInput.addEventListener('compositionend', () => {
         isComposing = false;
-        // 输入法合成结束，再执行一次自动转全角（合成期间 value 是拼音，不能转）
         if (autoFullwidth) applyAutoFullwidth();
-        updateConvertBtn();
-        syncParamsFromText(false);
-        scheduleRender();
+        handleTextUpdate();
     });
 
     els.textInput.addEventListener('input', () => {
-        // 合成期间跳过转换，避免打断输入法
         if (!isComposing && autoFullwidth) {
             applyAutoFullwidth();
         }
-        updateConvertBtn();
-        syncParamsFromText(false);
+        if (!isComposing) {
+            handleTextUpdate();
+        } else {
+            syncParamsFromText(false);
+            scheduleRender();
+        }
+    });
+
+    /* ---------- 🌟 字体下拉框切换：选中后按需加载在线字体 ---------- */
+    els.fontFamily.addEventListener('change', async () => {
+        const selectedFont = els.fontFamily.value;
+        scheduleRender();
+        await ensureOnlineFontLoaded(selectedFont, els.textInput.value);
         scheduleRender();
     });
 
     /* ---------- 其他参数控件 ---------- */
     const inputs = [
-        els.fontFamily,
         els.styleGrid, els.styleItalic, els.styleBold, els.styleStrike,
         els.textColor, els.lineColor,
         els.fontSize, els.textRatio, els.colGap, els.lineGap,
@@ -1349,17 +1423,13 @@ function bindEvents() {
     /* ---------- 🌟 转全角 / 转半角 按钮 ---------- */
     els.convertBtn.addEventListener('click', () => {
         if (autoFullwidth) {
-            // 自动全角开启 → 关闭并转半角
             els.textInput.value = toHalfwidth(els.textInput.value);
             autoFullwidth = false;
         } else {
-            // 自动全角关闭 → 开启并转全角
             els.textInput.value = toFullwidth(els.textInput.value);
             autoFullwidth = true;
         }
-        updateConvertBtn();
-        syncParamsFromText(false);
-        scheduleRender();
+        handleTextUpdate();
     });
 
     /* ---------- 配置模式切换（田字格 / 自由） ---------- */
@@ -1456,8 +1526,8 @@ async function initApp() {
     // 8. 背景图
     if (defaultBg) setBackground(defaultBg);
 
-    // 9. 在线字体
-    loadAllOnlineFonts().then(() => {
+    // 9. 在线字体（仅预加载前 3 个，其余选中后加载）
+    loadInitialOnlineFonts().then(() => {
         markFontOptions();
         render();
     });
