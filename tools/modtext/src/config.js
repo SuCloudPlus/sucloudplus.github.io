@@ -25,37 +25,40 @@ window.APP_CONFIG = {
     logicalWidth: 1067,
 
     /* ==========================================================
-     * 二、字体
+     * 二、字体（显示名 label + 真实字体名 value 分离）
+     * - label：下拉框显示名称
+     * - value：CSS @font-face / 本机字体 / ctx.font 实际使用的 font-family
+     * - 亦兼容直接写纯字符串（如 "Microsoft YaHei"）
      * ========================================================== */
 
-    // 默认字体（需在 availableFonts 中存在）
-    defaultFont: "方正正中黑简体",
+    // 默认字体（需与某个 availableFonts 的 value 匹配）
+    defaultFont: "FZZhengHeiS-DB-GB",
 
     availableFonts: [
-        "方正正中黑简体",
-        "方正正中黑_GBK",
-        "得意黑",
-        "Microsoft YaHei",
-        "SimSun",
-        "KaiTi",
-        "Arial",
-        "sans-serif"
+        { label: "方正正中黑简体", value: "FZZhengHeiS-DB-GB" },
+        { label: "方正正中黑_GBK", value: "FZZhengHei-DB-GBK" },
+        { label: "得意黑", value: "Smiley Sans" },
+        { label: "微软雅黑", value: "Microsoft YaHei" },
+        { label: "宋体", value: "SimSun" },
+        { label: "楷体", value: "KaiTi" },
+        { label: "Arial", value: "Arial" },
+        { label: "无衬线字体", value: "sans-serif" }
     ],
 
-    // 在线字体（自动下载 CSS 并注入）
+    // 在线字体（自动下载 CSS 并注入；name 对应真实 font-family）
     onlineFonts: [
         {
-            name: "方正正中黑简体",
+            name: "FZZhengHeiS-DB-GB",
             mainCss: "https://sucloudplus.github.io/fonts/fzzhengheis-db-gb/stylesheet.css",
             fallbackCss: ""
         },
         {
-            name: "方正正中黑_GBK",
+            name: "FZZhengHei-DB-GBK",
             mainCss: "https://sucloudplus.github.io/fonts/fzzhenghei-db-gbk/stylesheet.css",
             fallbackCss: ""
         },
         {
-            name: "得意黑",
+            name: "Smiley Sans",
             mainCss: "https://fontsapi.zeoseven.com/92/main/result.css",
             fallbackCss: "https://sucloudplus.github.io/fonts/smiley-sans/stylesheet.css"
         }
@@ -103,8 +106,8 @@ window.APP_CONFIG = {
         bold         : false,
         strike       : false,
 
-        // 字体（留空则使用下拉框默认项）
-        font         : "方正正中黑简体"
+        // 字体（填真实 font-family 的 value；留空则使用下拉框默认项）
+        font         : "FZZhengHeiS-DB-GB"
     },
 
     /* ==========================================================
