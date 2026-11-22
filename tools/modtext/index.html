@@ -252,8 +252,8 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 .preset-info.hit { color: #2ECC71; font-weight: bold; }
 
 /* ============================================================
-   🌟 模式切换 + 同字数多方案切换（同一行，高度固定，避免跳动）
-   ============================================================ */
+ * 🌟 模式切换 + 同字数多方案切换（同一行，高度固定，避免跳动）
+ * ============================================================ */
 .preset-bar {
     display: flex;
     align-items: center;
@@ -453,15 +453,15 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
 <script>
 /* =========================================================
-   全局配置引用
-   ========================================================= */
+ * 全局配置引用
+ * ========================================================= */
 const CONFIG = window.APP_CONFIG || {};
 const FREE_PARAMS = CONFIG.freeConfig || {};
 const GRID_PRESETS = (CONFIG.gridConfig && CONFIG.gridConfig.lengthPresets) || {};
 
 /* =========================================================
-   常量与状态
-   ========================================================= */
+ * 常量与状态
+ * ========================================================= */
 const PREVIEW_DPR    = Math.min(2, window.devicePixelRatio || 1);
 const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
@@ -491,7 +491,7 @@ let logicalH = Math.round((CONFIG.logicalWidth || 1067) * 9 / 16);
 let previewCtx = null;
 let rafPending = false;
 
-/** 字体加载结果：name -> true(成功) / false(失败) */
+/** 字体加载结果：真实 font-family (value) -> true(成功) / false(失败) */
 const fontStatus = new Map();
 
 /** 🌟 同字数多方案：记住每个预设 key 下选中的方案索引 */
@@ -506,8 +506,8 @@ let currentCharsPerLine = 0;
 let lastAppliedKey = undefined;
 
 /* =========================================================
-   DOM 缓存
-   ========================================================= */
+ * DOM 缓存
+ * ========================================================= */
 const els = {
     previewArea : document.getElementById('preview-area'),
     stage       : document.getElementById('stage'),
@@ -560,8 +560,29 @@ const els = {
 };
 
 /* =========================================================
-   工具：字数 / 全半角
-   ========================================================= */
+ * 🌟 字体项归一化工具（显示名 label + 真实字体名 value）
+ * ========================================================= */
+function normalizeFontItem(item) {
+    if (typeof item === 'string') {
+        return { label: item, value: item };
+    }
+    if (item && typeof item === 'object') {
+        const value = String(item.value ?? item.font ?? item.label ?? '').trim();
+        const label = String(item.label ?? item.name ?? value).trim();
+        return { label: label || value, value };
+    }
+    return { label: '', value: '' };
+}
+
+function getNormalizedFonts() {
+    return (CONFIG.availableFonts || [])
+        .map(normalizeFontItem)
+        .filter(f => f.value !== '');
+}
+
+/* =========================================================
+ * 工具：字数 / 全半角
+ * ========================================================= */
 
 /** 统计字数：忽略换行符 */
 function countTextChars(text) {
@@ -581,7 +602,7 @@ function charWidthFactor(ch) {
 
 /** 是否空白字符（占位但不绘制格子/文字） */
 function isBlankChar(ch) {
-    return ch === ' ' || ch === '　' || ch === '\t' || ch === '\u00A0';
+    return ch === ' ' || ch === ' ' || ch === '\t' || ch === '\u00A0';
 }
 
 /** 半角 → 全角 */
@@ -621,9 +642,6 @@ function applyAutoFullwidth() {
     }
 }
 
-const RE_HALF_CONVERTIBLE = /[\x21-\x7E ]/;          // 可转为全角的半角字符
-const RE_FULL_CONVERTIBLE = /[\uFF01-\uFF5E\u3000]/; // 可转为半角的全角字符
-
 /** 🌟 按钮文字随自动全角开关切换 */
 function updateConvertBtn() {
     if (autoFullwidth) {
@@ -636,8 +654,8 @@ function updateConvertBtn() {
 }
 
 /* =========================================================
-   按字数配置：解析与合并
-   ========================================================= */
+ * 按字数配置：解析与合并
+ * ========================================================= */
 
 /** 区间 key 归一化 */
 function normalizeRangeKey(key) {
@@ -882,15 +900,15 @@ function layoutLines(text, charsPerLine) {
 }
 
 /* =========================================================
-   字体 CSS 异步加载
-   ========================================================= */
+ * 字体 CSS 异步加载
+ * ========================================================= */
 async function loadFontCSS(main, fallback) {
     const tryLoad = async (url) => {
         const res = await fetch(url, { method: 'GET', mode: 'cors' });
         if (!res.ok) throw new Error('HTTP ' + res.status);
 
         const cssText = await res.text();
-        const baseUrl = url.replace(/[^/]*\.css$/, '');
+        const baseUrl = url.replace(/[^/]*\.css(?:\?.*)?$/i, '');
 
         const rewritten = cssText.replace(
             /url\(\s*(['"]?)([^'")]+)\1\s*\)/g,
@@ -926,13 +944,15 @@ async function loadFontCSS(main, fallback) {
 async function loadAllOnlineFonts() {
     const list = CONFIG.onlineFonts || [];
     await Promise.all(list.map(async (f) => {
+        const fontFamilyValue = f.value || f.name;
         const ok = await loadFontCSS(f.mainCss, f.fallbackCss);
-        fontStatus.set(f.name, ok);
+        fontStatus.set(fontFamilyValue, ok);
     }));
 
-    await Promise.all((CONFIG.availableFonts || []).map(name =>
+    const availableValues = getNormalizedFonts().map(f => f.value);
+    await Promise.all(availableValues.map(fontValue =>
         document.fonts
-            ? document.fonts.load(`16px "${name}"`).catch(() => {})
+            ? document.fonts.load(`16px "${fontValue}"`).catch(() => {})
             : Promise.resolve()
     ));
 
@@ -943,16 +963,19 @@ async function loadAllOnlineFonts() {
 
 function markFontOptions() {
     Array.from(els.fontFamily.options).forEach(opt => {
-        const name = opt.value;
-        if (fontStatus.get(name) === false && !opt.textContent.includes('加载失败')) {
-            opt.textContent = `${name}（加载失败）`;
+        const fontValue = opt.value;
+        const baseLabel = opt.dataset.label || opt.textContent.replace(/（加载失败）$/, '');
+        if (fontStatus.get(fontValue) === false) {
+            opt.textContent = `${baseLabel}（加载失败）`;
+        } else {
+            opt.textContent = baseLabel;
         }
     });
 }
 
 /* =========================================================
-   Canvas 尺寸 / 预览缩放
-   ========================================================= */
+ * Canvas 尺寸 / 预览缩放
+ * ========================================================= */
 function updateCanvasSize() {
     const w = Math.max(1, Math.round(logicalW * PREVIEW_DPR));
     const h = Math.max(1, Math.round(logicalH * PREVIEW_DPR));
@@ -985,9 +1008,10 @@ function fitStage() {
 }
 
 /* =========================================================
-   参数读取 / 标签更新
-   ========================================================= */
+ * 参数读取 / 标签更新
+ * ========================================================= */
 function readParams() {
+    const fallbackFont = normalizeFontItem(CONFIG.defaultFont).value || 'sans-serif';
     return {
         text         : els.textInput.value,
         charsPerLine : currentCharsPerLine,
@@ -1002,7 +1026,7 @@ function readParams() {
         dashDensity  : parseFloat(els.dashDensity.value)   || 0,
         textColor    : els.textColor.value,
         lineColor    : els.lineColor.value,
-        font         : els.fontFamily.value || CONFIG.defaultFont,
+        font         : els.fontFamily.value || fallbackFont,
         grid         : els.styleGrid.checked,
         italic       : els.styleItalic.checked,
         bold         : els.styleBold.checked,
@@ -1023,8 +1047,8 @@ function updateLabels(p) {
 }
 
 /* =========================================================
-   核心绘制
-   ========================================================= */
+ * 核心绘制
+ * ========================================================= */
 function drawScene(ctx, W, H, p) {
     ctx.save();
     ctx.clearRect(0, 0, W, H);
@@ -1134,8 +1158,8 @@ function drawScene(ctx, W, H, p) {
 }
 
 /* =========================================================
-   渲染调度
-   ========================================================= */
+ * 渲染调度
+ * ========================================================= */
 function render() {
     const p = readParams();
     updateLabels(p);
@@ -1158,8 +1182,8 @@ function scheduleRender() {
 }
 
 /* =========================================================
-   背景图
-   ========================================================= */
+ * 背景图
+ * ========================================================= */
 function setBackground(url) {
     els.bgImg.onload = () => {
         const natW = els.bgImg.naturalWidth;
@@ -1186,8 +1210,8 @@ function setBackground(url) {
 }
 
 /* =========================================================
-   字号快速选择
-   ========================================================= */
+ * 字号快速选择
+ * ========================================================= */
 function buildPresetButtons() {
     FONT_SIZE_PRESETS.forEach(v => {
         const btn = document.createElement('button');
@@ -1214,8 +1238,8 @@ function updatePresetActive(value) {
 }
 
 /* =========================================================
-   导出
-   ========================================================= */
+ * 导出
+ * ========================================================= */
 function exportImage() {
     if (!logicalW || !logicalH) return;
 
@@ -1276,8 +1300,8 @@ function exportImage() {
 }
 
 /* =========================================================
-   事件绑定
-   ========================================================= */
+ * 事件绑定
+ * ========================================================= */
 function bindEvents() {
     /* ---------- 🌟 文字输入：自动转全角（含 IME 保护） ---------- */
     let isComposing = false;
@@ -1368,17 +1392,19 @@ function bindEvents() {
 }
 
 /* =========================================================
-   启动
-   ========================================================= */
+ * 启动
+ * ========================================================= */
 async function initApp() {
     document.body.className = `layout-${CONFIG.panelPosition || 'right'}`;
 
-    // 1. 字体下拉框
-    (CONFIG.availableFonts || []).forEach(font => {
+    // 1. 字体下拉框（textContent 显示 label，value 存真实 font-family）
+    const defaultFontValue = normalizeFontItem(CONFIG.defaultFont).value;
+    getNormalizedFonts().forEach(fontItem => {
         const opt = document.createElement('option');
-        opt.value = font;
-        opt.textContent = font;
-        if (font === CONFIG.defaultFont) opt.selected = true;
+        opt.value = fontItem.value;
+        opt.textContent = fontItem.label;
+        opt.dataset.label = fontItem.label;
+        if (fontItem.value === defaultFontValue) opt.selected = true;
         els.fontFamily.appendChild(opt);
     });
 
