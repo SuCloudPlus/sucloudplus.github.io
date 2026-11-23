@@ -13,15 +13,31 @@ window.APP_CONFIG = {
     // 面板位置：'top' | 'bottom' | 'left' | 'right'
     panelPosition: "right",
 
-    // 网络资源（字体 CSS、字体文件、背景图）加载超时时间（毫秒）
+    // 网络资源（字体 CSS、字体文件、单批背景图）加载超时时间（毫秒）
     networkTimeout: 5000,
 
-    // 默认背景图路径（留空则显示纯色）
-    bgImageUrl: "src/bg01.jpg",
+    // 🌟 背景图多源并发加载线程数（默认 2：同时加载第 1、2 个来源，失败/超时后加载第 3、4 个，以此类推）
+    bgLoadConcurrency: 2,
 
-    // 预设背景图列表（模拟文件夹）
+    // 默认背景图（支持纯字符串、URL数组，或 { name, urls: [...] } 多来源对象，无来源数量上限；留空则显示纯色）
+    bgImageUrl: {
+        name: "默认背景",
+        urls: [
+            "src/bg01.jpg"
+            // 可继续按优先级添加无限多个备用源，例如：
+            // "https://example.com/bg01.jpg",
+            // "https://cdn.example.com/bg01.jpg"
+        ]
+    },
+
+    // 预设背景图列表（每项支持纯字符串、URL数组，或 { name, urls: [...] } 多来源对象）
     bgImageFolder: [
-        "src/bg01.jpg"
+        {
+            name: "默认背景",
+            urls: [
+                "src/bg01.jpg"
+            ]
+        }
     ],
 
     // 画布逻辑宽度（固定，导出尺寸不受窗口影响）
