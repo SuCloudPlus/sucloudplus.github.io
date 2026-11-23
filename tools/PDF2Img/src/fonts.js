@@ -30,10 +30,6 @@ export class FontManager {
     return map;
   }
 
-  getFonts() {
-    return this.normalizedFonts;
-  }
-
   getDefaultFont() {
     const def = this.config.defaultFont;
     const matched = this.normalizedFonts.find((f) => f.value === def);
@@ -42,31 +38,37 @@ export class FontManager {
   }
 
   /**
-   * 将任意字体名通过 fontMapping 归并到统一字体
+   * 清洗字体名并执行统一映射（如将多种宋体归并为 SimSun）
    */
-  resolveMappedFont(fontName) {
-    if (!fontName) return this.getDefaultFont();
-    const cleaned = String(fontName).replace(/["']/g, '').trim();
+  resolveMappedFont(rawFontName) {
+    if (!rawFontName) return null;
+    const cleaned = String(rawFontName).replace(/["']/g, '').trim();
+    if (!cleaned) return null;
     const mapped = this.mappingEntries.get(cleaned.toLowerCase());
     return mapped || cleaned;
   }
 
   /**
-   * 生成 CSS font-family 栈（包含映射后的目标字体及安全回退）
+   * 为指定字体生成 CSS font-family 栈
    */
-  buildCssFontStack(fontValue) {
-    const resolved = this.resolveMappedFont(fontValue);
-    const quoteIfNeeded = (name) => {
+  buildFontStack(primaryFont, fallbackFont = null) {
+    const resolvedPrimary = this.resolveMappedFont(primaryFont);
+    const resolvedFallback = this.resolveMappedFont(fallbackFont) || this.getDefaultFont();
+    const quote = (name) => {
       const generic = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui'];
       if (generic.includes(name.toLowerCase())) return name;
       return `"${name.replace(/"/g, '\\"')}"`;
     };
-    return `${quoteIfNeeded(resolved)}, "Microsoft YaHei", "PingFang SC", sans-serif`;
+
+    const parts = [];
+    if (resolvedPrimary) parts.push(quote(resolvedPrimary));
+    if (resolvedFallback && resolvedFallback !== resolvedPrimary) {
+      parts.push(quote(resolvedFallback));
+    }
+    parts.push('"Microsoft YaHei"', '"PingFang SC"', 'sans-serif');
+    return parts.join(', ');
   }
 
-  /**
-   * 加载单个 CSS 样式表（去重）
-   */
   _injectStylesheet(url) {
     if (!url) return Promise.resolve();
     if (this.loadedCssUrls.has(url)) return Promise.resolve();
@@ -100,9 +102,6 @@ export class FontManager {
     return promise;
   }
 
-  /**
-   * 加载指定的在线字体配置项（优先 mainCss，失败时尝试 fallbackCss）
-   */
   async loadOnlineFontItem(fontItem) {
     if (!fontItem) return;
     if (fontItem.mainCss) {
@@ -132,7 +131,7 @@ export class FontManager {
   }
 
   /**
-   * 加载本地字体（若配置了 localFonts）
+   * 加载本地字体（通过 FontFace API）
    */
   async loadLocalFonts() {
     const localFonts = Array.isArray(this.config.localFonts) ? this.config.localFonts : [];
@@ -150,49 +149,93 @@ export class FontManager {
   }
 
   /**
-   * 选中某字体时：先做字体映射，再按需加载对应的在线字体 CSS，并等待 document.fonts 就绪
+   * 按需加载单个字体名称对应的在线样式表
    */
-  async ensureFontReady(selectedFontValue) {
-    const mappedName = this.resolveMappedFont(selectedFontValue);
+  async ensureFontLoadedByName(fontName) {
+    const resolved = this.resolveMappedFont(fontName);
+    if (!resolved) return;
+
     const onlineFonts = Array.isArray(this.config.onlineFonts) ? this.config.onlineFonts : [];
-    const targetItem = onlineFonts.find(
-      (f) => f.name === mappedName || f.name === selectedFontValue
+    const matched = onlineFonts.find(
+      (item) => item.name === resolved || item.name === fontName
     );
-
-    if (targetItem) {
-      await this.loadOnlineFontItem(targetItem);
+    if (matched) {
+      await this.loadOnlineFontItem(matched);
     }
-
-    if (document.fonts && document.fonts.ready) {
-      try {
-        await document.fonts.ready;
-      } catch (_) {
-        // ignore
-      }
-    }
-
-    return mappedName;
   }
 
   /**
-   * 对 DOCX 渲染 DOM 内的内联/计算字体进行统一映射归并
+   * 扫描 DOCX 渲染容器中的字体，完成映射归并并按需加载对应字体
    */
-  applyFontMappingToContainer(containerEl, activeFontValue) {
+  async prepareDocxFonts(containerEl) {
     if (!containerEl) return;
-    const stack = this.buildCssFontStack(activeFontValue);
-    containerEl.style.fontFamily = stack;
+    const candidateFonts = new Set([this.getDefaultFont()]);
 
-    // 扫描内部元素，若明确指定了属于 fontMapping 的字体，则统一归并
-    const allNodes = containerEl.querySelectorAll('*');
-    allNodes.forEach((el) => {
-      const inlineFf = el.style && el.style.fontFamily;
-      if (inlineFf) {
-        const parts = inlineFf.split(',').map((s) => s.replace(/["']/g, '').trim());
-        const hasMapped = parts.some((p) => this.mappingEntries.has(p.toLowerCase()));
-        if (hasMapped) {
-          el.style.fontFamily = stack;
-        }
+    const nodes = containerEl.querySelectorAll('*');
+    nodes.forEach((el) => {
+      const ff = el.style && el.style.fontFamily;
+      if (!ff) return;
+      const firstToken = ff.split(',')[0].replace(/["']/g, '').trim();
+      if (!firstToken) return;
+      const mapped = this.resolveMappedFont(firstToken);
+      if (mapped) {
+        candidateFonts.add(mapped);
+        el.style.fontFamily = this.buildFontStack(mapped, this.getDefaultFont());
       }
     });
+
+    await Promise.allSettled(
+      Array.from(candidateFonts).map((name) => this.ensureFontLoadedByName(name))
+    );
+
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (_) { /* ignore */ }
+    }
+  }
+
+  /**
+   * 扫描 PPTX SVG 中的字体，完成映射归并并按需加载对应字体
+   */
+  async preparePptxFonts(svgStr) {
+    const candidateFonts = new Set([this.getDefaultFont()]);
+    let serialized = svgStr;
+
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgStr, 'image/svg+xml');
+      const svgEl = doc.documentElement;
+
+      const rootFf = svgEl.getAttribute('font-family');
+      if (rootFf) {
+        const mappedRoot = this.resolveMappedFont(rootFf.split(',')[0]);
+        if (mappedRoot) {
+          candidateFonts.add(mappedRoot);
+          svgEl.setAttribute('font-family', this.buildFontStack(mappedRoot, this.getDefaultFont()));
+        }
+      }
+
+      doc.querySelectorAll('[font-family]').forEach((node) => {
+        const raw = node.getAttribute('font-family');
+        const mapped = this.resolveMappedFont(raw.split(',')[0]);
+        if (mapped) {
+          candidateFonts.add(mapped);
+          node.setAttribute('font-family', this.buildFontStack(mapped, this.getDefaultFont()));
+        }
+      });
+
+      serialized = new XMLSerializer().serializeToString(doc);
+    } catch (_) {
+      serialized = svgStr;
+    }
+
+    await Promise.allSettled(
+      Array.from(candidateFonts).map((name) => this.ensureFontLoadedByName(name))
+    );
+
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (_) { /* ignore */ }
+    }
+
+    return serialized;
   }
 }
