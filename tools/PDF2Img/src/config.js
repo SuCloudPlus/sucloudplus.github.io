@@ -8,17 +8,18 @@ export const APP_CONFIG = {
   jszipCdn: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
 
   previewWidth: 200,
+  lightboxMaxScale: 2,
   maxCanvasSide: 32767,
   maxCanvasArea: 268435456, // 2.68 亿像素上限
 
   /* ==========================================================
-   * 二、字体（显示名 label + 真实字体名 value 分离）
-   * - label：下拉框显示名称
-   * - value：CSS @font-face / 本机字体 / ctx.font 实际使用的 font-family
+   * 二、字体（针对 DOCX / PPTX 文档内字体的映射与加载）
+   * - label：字体显示名称
+   * - value：CSS @font-face / 本机字体 / 渲染使用的 font-family
    * - 亦兼容直接写纯字符串（如 "Microsoft YaHei"）
    * ========================================================== */
 
-  // 默认字体（需与某个 availableFonts 的 value 匹配）
+  // 默认回退字体（需与某个 availableFonts 的 value 匹配）
   defaultFont: 'FZZhengHeiS-DB-GB',
 
   availableFonts: [
@@ -32,7 +33,7 @@ export const APP_CONFIG = {
     { label: '无衬线字体', value: 'sans-serif' }
   ],
 
-  // 在线字体：默认只预加载前 3 项，其余在选中该字体时按需加载
+  // 在线字体：默认只预加载前 3 项，其余在 DOCX / PPTX 用到该字体时按需加载
   onlineFonts: [
     {
       name: 'FZZhengHeiS-DB-GB',
@@ -52,9 +53,9 @@ export const APP_CONFIG = {
   ],
 
   /* ==========================================================
-   * 三、字体统一映射（将多种相近/变体字体归并到目标字体）
-   * - key：文档/样式中可能出现的原始字体名（不区分大小写匹配）
-   * - value：统一映射后的目标字体 value（可带回退字体栈）
+   * 三、字体统一映射（将多种相近/变体字体归并到统一目标字体）
+   * - key：DOCX / PPTX 中声明或用到的原始字体名（不区分大小写）
+   * - value：归并后的目标字体名
    * ========================================================== */
   fontMapping: {
     // 多种相近宋体统一归并为 "SimSun"
@@ -68,7 +69,7 @@ export const APP_CONFIG = {
     'Songti TC': 'SimSun',
     'Noto Serif CJK SC': 'SimSun',
 
-    // 常见黑体/雅黑变体统一归并
+    // 常见雅黑/黑体变体归并
     '微软雅黑': 'Microsoft YaHei',
     'Microsoft YaHei UI': 'Microsoft YaHei',
     'PingFang SC': 'Microsoft YaHei',
@@ -76,7 +77,7 @@ export const APP_CONFIG = {
     '黑体': 'SimHei',
     'STHeiti': 'SimHei',
 
-    // 常见楷体变体统一归并
+    // 常见楷体变体归并
     '楷体': 'KaiTi',
     '楷体_GB2312': 'KaiTi',
     'STKaiti': 'KaiTi',
@@ -85,9 +86,9 @@ export const APP_CONFIG = {
   },
 
   /* ==========================================================
-   * 四、本地字体（可选：若通过本地目录或自定义 @font-face 引入）
+   * 四、本地字体（可选：通过 FontFace API 加载本地字体文件）
    * - family：字体族名称
-   * - urls：字体文件路径数组（如 ['./assets/fonts/Custom.woff2']）
+   * - urls：字体文件路径数组（如 ['./assets/fonts/SimSun.woff2']）
    * ========================================================== */
   localFonts: []
 };
