@@ -85,11 +85,9 @@
     background: #eef2f7; border-radius: 6px; min-height: 140px;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden; color: #94a3b8; font-size: 13px; cursor: zoom-in;
-    transition: box-shadow .15s, transform .15s;
+    transition: box-shadow .15s;
   }
-  .page-preview:hover {
-    box-shadow: 0 0 0 2px var(--accent);
-  }
+  .page-preview:hover { box-shadow: 0 0 0 2px var(--accent); }
   .page-preview canvas { max-width: 100%; height: auto; display: block; }
   .page-preview svg { max-width: 100%; height: auto; display: block; }
   .page-meta {
@@ -108,18 +106,18 @@
     border-radius: var(--radius);
   }
 
-  /* 全屏预览浮层 */
+  /* 全屏预览浮层（固定面板尺寸与稳定过渡，切换页时不闪烁） */
   .lightbox {
     position: fixed; inset: 0; z-index: 100000;
-    background: rgba(15, 23, 42, 0.9);
+    background: rgba(15, 23, 42, 0.92);
     display: flex; flex-direction: column; justify-content: space-between;
     padding: 16px 20px;
   }
   .lightbox-top {
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    color: #f8fafc; font-size: 14px;
+    color: #f8fafc; font-size: 14px; flex-shrink: 0;
   }
-  .lightbox-title { font-weight: 600; }
+  .lightbox-title { font-weight: 600; min-width: 120px; }
   .lightbox-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .lightbox-btn {
     padding: 7px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,.22);
@@ -137,14 +135,31 @@
     gap: 16px; padding: 14px 0; position: relative;
   }
   .lightbox-canvas-wrap {
-    max-width: calc(100vw - 140px); max-height: calc(100vh - 130px);
-    overflow: auto; display: flex; align-items: center; justify-content: center;
-    background: #fff; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,.45);
+    position: relative;
+    width: min(960px, calc(100vw - 150px));
+    height: min(680px, calc(100vh - 140px));
+    overflow: auto;
+    display: flex; align-items: center; justify-content: center;
+    background: #1e293b;
+    border-radius: 8px;
+    box-shadow: 0 20px 50px rgba(0,0,0,.45);
   }
-  .lightbox-canvas-wrap img,
-  .lightbox-canvas-wrap canvas {
-    max-width: 100%; max-height: calc(100vh - 140px);
+  .lightbox-content {
+    max-width: 100%; max-height: 100%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .lightbox-content canvas,
+  .lightbox-content img {
+    max-width: 100%; max-height: 100%;
     width: auto; height: auto; display: block;
+    background: #fff;
+  }
+  /* 轻量角落徽章提示，不改变画面整体明暗与尺寸 */
+  .lightbox-badge {
+    position: absolute; top: 10px; right: 10px;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(15, 23, 42, 0.72); color: #e2e8f0;
+    font-size: 12px; pointer-events: none;
   }
   .lightbox-nav {
     width: 44px; height: 44px; border-radius: 50%;
@@ -156,7 +171,7 @@
   .lightbox-nav:hover:not(:disabled) { background: rgba(37, 99, 235, .85); }
   .lightbox-nav:disabled { opacity: .25; cursor: not-allowed; }
   .lightbox-hint {
-    text-align: center; color: #94a3b8; font-size: 12px;
+    text-align: center; color: #94a3b8; font-size: 12px; flex-shrink: 0;
   }
 
   /* DOCX 渲染容器（离屏） */
@@ -180,7 +195,7 @@
 <div class="wrap">
   <header>
     <h1>文档页面导出工具</h1>
-    <p class="sub">支持 PDF / DOCX / PPTX · 缩略图全屏预览 · 单页 / 批量 / 长图导出</p>
+    <p class="sub">支持 PDF / DOCX / PPTX · 缩略图全屏预览 · 快捷键翻页 · 单页 / 批量 / 长图导出</p>
   </header>
 
   <section class="panel">
@@ -231,9 +246,9 @@
   <main id="pageList" class="page-list"></main>
 
   <div class="tip">
-    <b>格式与字体说明：</b><br>
+    <b>格式与快捷键说明：</b><br>
     · PDF / PPTX 支持逐页导出、点击缩略图全屏预览与拼接长图。<br>
-    · DOCX / PPTX 内使用的字体会自动按 <code>src/config.js</code> 中的 <code>fontMapping</code> 统一归并，并加载本地字体与在线字体。<br>
+    · 全屏预览快捷键：<code>←</code> / <code>→</code> 上/下一页，<code>Home</code> / <code>End</code> 首/尾页，<code>PageUp</code> / <code>PageDown</code> 前/后 5 页，<code>Esc</code> 关闭。<br>
     · DOCX 由 docx-preview 渲染为 HTML 后整体导出长图，不支持精确逐页分割。<br>
     · 旧版 <b>.doc / .ppt</b> 为二进制 OLE 格式，纯前端无可靠解析方案，请另存为 .docx / .pptx 后重试。<br>
     · 拼接长图受浏览器画布限制（单边 ≤ 32767、面积 ≤ 2.68 亿像素），超限会提示并自动降低分辨率。
@@ -245,16 +260,23 @@
   <div class="lightbox-top">
     <span id="lightboxTitle" class="lightbox-title">第 1 页</span>
     <div class="lightbox-actions">
+      <button id="lightboxFirstBtn" class="lightbox-btn" type="button" title="首页 (Home)">首页</button>
+      <button id="lightboxPrev5Btn" class="lightbox-btn" type="button" title="前5页 (PageUp)">-5页</button>
+      <button id="lightboxNext5Btn" class="lightbox-btn" type="button" title="后5页 (PageDown)">+5页</button>
+      <button id="lightboxLastBtn" class="lightbox-btn" type="button" title="尾页 (End)">尾页</button>
       <button id="lightboxExportBtn" class="lightbox-btn primary" type="button">导出此页</button>
       <button id="lightboxCloseBtn" class="lightbox-btn" type="button">关闭 (Esc)</button>
     </div>
   </div>
   <div class="lightbox-stage">
     <button id="lightboxPrevBtn" class="lightbox-nav" type="button" title="上一页 (←)">‹</button>
-    <div id="lightboxBody" class="lightbox-canvas-wrap"></div>
+    <div id="lightboxBody" class="lightbox-canvas-wrap">
+      <div id="lightboxContent" class="lightbox-content"></div>
+      <div id="lightboxBadge" class="lightbox-badge" hidden>渲染中…</div>
+    </div>
     <button id="lightboxNextBtn" class="lightbox-nav" type="button" title="下一页 (→)">›</button>
   </div>
-  <div class="lightbox-hint">使用 ← / → 方向键切换页面，点击遮罩或按 Esc 关闭全屏预览</div>
+  <div class="lightbox-hint">←/→ 上下页 · Home/End 首尾页 · PgUp/PgDn 前后5页 · Esc 关闭</div>
 </div>
 
 <!-- DOCX 离屏渲染容器 -->
@@ -266,13 +288,232 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script type="module">
-import { APP_CONFIG } from './src/config.js';
-import { FontManager } from './src/fonts.js';
+const APP_CONFIG = {
+  pdfCdnBase: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/',
+  pptxGlimpseEsm: 'https://cdn.jsdelivr.net/npm/pptx-glimpse@5.3.1/+esm',
+  jszipCdn: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+  previewWidth: 200,
+  lightboxMaxScale: 2,
+  maxCanvasSide: 32767,
+  maxCanvasArea: 268435456,
+  defaultFont: 'FZZhengHeiS-DB-GB',
+  availableFonts: [
+    { label: '方正正中黑简体', value: 'FZZhengHeiS-DB-GB' },
+    { label: '方正正中黑_GBK', value: 'FZZhengHei-DB-GBK' },
+    { label: '得意黑', value: 'Smiley Sans Oblique' },
+    { label: '微软雅黑', value: 'Microsoft YaHei' },
+    { label: '宋体', value: 'SimSun' },
+    { label: '楷体', value: 'KaiTi' },
+    { label: 'Arial', value: 'Arial' },
+    { label: '无衬线字体', value: 'sans-serif' }
+  ],
+  onlineFonts: [
+    {
+      name: 'FZZhengHeiS-DB-GB',
+      mainCss: 'https://sucloudplus.github.io/fonts/fzzhengheis-db-gb/stylesheet.css',
+      fallbackCss: ''
+    },
+    {
+      name: 'FZZhengHei-DB-GBK',
+      mainCss: 'https://sucloudplus.github.io/fonts/fzzhenghei-db-gbk/stylesheet.css',
+      fallbackCss: ''
+    },
+    {
+      name: 'Smiley Sans Oblique',
+      mainCss: 'https://fontsapi.zeoseven.com/92/main/result.css',
+      fallbackCss: 'https://sucloudplus.github.io/fonts/smiley-sans/stylesheet.css'
+    }
+  ],
+  fontMapping: {
+    '宋体': 'SimSun',
+    '新宋体': 'SimSun',
+    'NSimSun': 'SimSun',
+    'SimSun-ExtB': 'SimSun',
+    'STSong': 'SimSun',
+    '华文宋体': 'SimSun',
+    'Songti SC': 'SimSun',
+    'Songti TC': 'SimSun',
+    'Noto Serif CJK SC': 'SimSun',
+    '微软雅黑': 'Microsoft YaHei',
+    'Microsoft YaHei UI': 'Microsoft YaHei',
+    'PingFang SC': 'Microsoft YaHei',
+    '苹方-简': 'Microsoft YaHei',
+    '黑体': 'SimHei',
+    'STHeiti': 'SimHei',
+    '楷体': 'KaiTi',
+    '楷体_GB2312': 'KaiTi',
+    'STKaiti': 'KaiTi',
+    '华文楷体': 'KaiTi',
+    'Kaiti SC': 'KaiTi'
+  },
+  localFonts: []
+};
+
+class FontManager {
+  constructor(config) {
+    this.config = config;
+    this.loadedCssUrls = new Set();
+    this.loadingCssMap = new Map();
+    this.normalizedFonts = (config.availableFonts || []).map((item) =>
+      typeof item === 'string'
+        ? { label: item, value: item }
+        : { label: item.label || item.value, value: item.value || item.label }
+    );
+    this.mappingEntries = new Map();
+    Object.entries(config.fontMapping || {}).forEach(([k, v]) => {
+      if (k && v) this.mappingEntries.set(String(k).trim().toLowerCase(), String(v).trim());
+    });
+  }
+
+  getDefaultFont() {
+    const def = this.config.defaultFont;
+    const matched = this.normalizedFonts.find((f) => f.value === def);
+    return matched ? matched.value : (this.normalizedFonts[0]?.value || 'sans-serif');
+  }
+
+  resolveMappedFont(rawFontName) {
+    if (!rawFontName) return null;
+    const cleaned = String(rawFontName).replace(/["']/g, '').trim();
+    if (!cleaned) return null;
+    return this.mappingEntries.get(cleaned.toLowerCase()) || cleaned;
+  }
+
+  buildFontStack(primaryFont, fallbackFont = null) {
+    const p = this.resolveMappedFont(primaryFont);
+    const fb = this.resolveMappedFont(fallbackFont) || this.getDefaultFont();
+    const generic = ['serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui'];
+    const quote = (n) => generic.includes(n.toLowerCase()) ? n : `"${n.replace(/"/g, '\\"')}"`;
+    const list = [];
+    if (p) list.push(quote(p));
+    if (fb && fb !== p) list.push(quote(fb));
+    list.push('"Microsoft YaHei"', '"PingFang SC"', 'sans-serif');
+    return list.join(', ');
+  }
+
+  _injectStylesheet(url) {
+    if (!url) return Promise.resolve();
+    if (this.loadedCssUrls.has(url)) return Promise.resolve();
+    if (this.loadingCssMap.has(url)) return this.loadingCssMap.get(url);
+
+    const promise = new Promise((resolve, reject) => {
+      const existing = document.querySelector(`link[data-font-css="${CSS.escape(url)}"]`);
+      if (existing) {
+        this.loadedCssUrls.add(url);
+        resolve();
+        return;
+      }
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = url;
+      link.dataset.fontCss = url;
+      link.onload = () => { this.loadedCssUrls.add(url); resolve(); };
+      link.onerror = () => reject(new Error(`字体样式加载失败: ${url}`));
+      document.head.appendChild(link);
+    }).finally(() => {
+      this.loadingCssMap.delete(url);
+    });
+
+    this.loadingCssMap.set(url, promise);
+    return promise;
+  }
+
+  async loadOnlineFontItem(fontItem) {
+    if (!fontItem) return;
+    if (fontItem.mainCss) {
+      try {
+        await this._injectStylesheet(fontItem.mainCss);
+        return;
+      } catch (err) {
+        if (fontItem.fallbackCss) {
+          await this._injectStylesheet(fontItem.fallbackCss);
+          return;
+        }
+        throw err;
+      }
+    }
+    if (fontItem.fallbackCss) {
+      await this._injectStylesheet(fontItem.fallbackCss);
+    }
+  }
+
+  async preloadDefaultOnlineFonts() {
+    const items = (this.config.onlineFonts || []).slice(0, 3);
+    await Promise.allSettled(items.map((item) => this.loadOnlineFontItem(item)));
+  }
+
+  async loadLocalFonts() {
+    const list = this.config.localFonts || [];
+    if (!list.length || typeof FontFace === 'undefined') return;
+    await Promise.allSettled(list.map(async (item) => {
+      if (!item.family || !Array.isArray(item.urls) || !item.urls.length) return;
+      const src = item.urls.map((u) => `url("${u}")`).join(', ');
+      const face = new FontFace(item.family, src, item.descriptors || {});
+      await face.load();
+      document.fonts.add(face);
+    }));
+  }
+
+  async ensureFontLoadedByName(fontName) {
+    const resolved = this.resolveMappedFont(fontName);
+    if (!resolved) return;
+    const onlineFonts = this.config.onlineFonts || [];
+    const matched = onlineFonts.find((item) => item.name === resolved || item.name === fontName);
+    if (matched) await this.loadOnlineFontItem(matched);
+  }
+
+  async prepareDocxFonts(containerEl) {
+    if (!containerEl) return;
+    const candidates = new Set([this.getDefaultFont()]);
+    containerEl.querySelectorAll('*').forEach((el) => {
+      const ff = el.style && el.style.fontFamily;
+      if (!ff) return;
+      const first = ff.split(',')[0].replace(/["']/g, '').trim();
+      const mapped = this.resolveMappedFont(first);
+      if (mapped) {
+        candidates.add(mapped);
+        el.style.fontFamily = this.buildFontStack(mapped, this.getDefaultFont());
+      }
+    });
+    await Promise.allSettled(Array.from(candidates).map((n) => this.ensureFontLoadedByName(n)));
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (_) {}
+    }
+  }
+
+  async preparePptxFonts(svgStr) {
+    const candidates = new Set([this.getDefaultFont()]);
+    let out = svgStr;
+    try {
+      const doc = new DOMParser().parseFromString(svgStr, 'image/svg+xml');
+      const root = doc.documentElement;
+      const rootFf = root.getAttribute('font-family');
+      if (rootFf) {
+        const mapped = this.resolveMappedFont(rootFf.split(',')[0]);
+        if (mapped) {
+          candidates.add(mapped);
+          root.setAttribute('font-family', this.buildFontStack(mapped, this.getDefaultFont()));
+        }
+      }
+      doc.querySelectorAll('[font-family]').forEach((node) => {
+        const mapped = this.resolveMappedFont(node.getAttribute('font-family').split(',')[0]);
+        if (mapped) {
+          candidates.add(mapped);
+          node.setAttribute('font-family', this.buildFontStack(mapped, this.getDefaultFont()));
+        }
+      });
+      out = new XMLSerializer().serializeToString(doc);
+    } catch (_) {}
+    await Promise.allSettled(Array.from(candidates).map((n) => this.ensureFontLoadedByName(n)));
+    if (document.fonts && document.fonts.ready) {
+      try { await document.fonts.ready; } catch (_) {}
+    }
+    return out;
+  }
+}
 
 (function () {
   'use strict';
 
-  /* ======================== 初始化配置与字体管理器 ======================== */
   const CDN_BASE = APP_CONFIG.pdfCdnBase;
   pdfjsLib.GlobalWorkerOptions.workerSrc = CDN_BASE + 'pdf.worker.min.js';
 
@@ -289,7 +530,6 @@ import { FontManager } from './src/fonts.js';
 
   const fontManager = new FontManager(APP_CONFIG);
 
-  /* ======================== 元素 ======================== */
   const $ = (id) => document.getElementById(id);
   const els = {
     dropZone:          $('dropZone'),
@@ -309,25 +549,29 @@ import { FontManager } from './src/fonts.js';
     lightbox:          $('lightbox'),
     lightboxTitle:     $('lightboxTitle'),
     lightboxBody:      $('lightboxBody'),
+    lightboxContent:   $('lightboxContent'),
+    lightboxBadge:     $('lightboxBadge'),
+    lightboxFirstBtn:  $('lightboxFirstBtn'),
+    lightboxPrev5Btn:   $('lightboxPrev5Btn'),
     lightboxPrevBtn:   $('lightboxPrevBtn'),
     lightboxNextBtn:   $('lightboxNextBtn'),
+    lightboxNext5Btn:   $('lightboxNext5Btn'),
+    lightboxLastBtn:   $('lightboxLastBtn'),
     lightboxExportBtn: $('lightboxExportBtn'),
     lightboxCloseBtn:  $('lightboxCloseBtn')
   };
 
-  /* ======================== 状态 ======================== */
-  let currentType = null;        // 'pdf' | 'docx' | 'pptx'
-  let pdfDoc = null;             // PDF.js 文档对象
-  let docxContainer = null;      // DOCX 渲染容器
-  let pptxSlides = null;         // PPTX 幻灯片数据 [{ svg, width, height, index }]
+  let currentType = null;
+  let pdfDoc = null;
+  let docxContainer = null;
+  let pptxSlides = null;
   let fileName = 'document';
   let busy = false;
   let previewScale = 0.3;
-  let lightboxPageIndex = null;  // 1-based 页码
+  let lightboxPageIndex = null;
   let lightboxToken = 0;
   const pageBaseSizes = new Map();
 
-  /* ======================== 通用工具 ======================== */
   function setStatus(msg, type) {
     els.status.textContent = msg || '';
     els.status.className = 'status' + (type ? ' ' + type : '');
@@ -348,7 +592,7 @@ import { FontManager } from './src/fonts.js';
   function getFormat() {
     const type = els.formatSelect.value;
     return {
-      type: type,
+      type,
       ext: type === 'image/png' ? 'png' : 'jpg',
       quality: parseFloat(els.qualityInput.value)
     };
@@ -405,42 +649,67 @@ import { FontManager } from './src/fonts.js';
     return s;
   }
 
-  /* ======================== 全屏浮层预览 ======================== */
+  /* ======================== 全屏浮层预览（无闪烁切换） ======================== */
+  function syncLightboxNavState(pageNum, total) {
+    els.lightboxTitle.textContent = `第 ${pageNum} / ${total} 页`;
+    els.lightboxFirstBtn.disabled = pageNum <= 1;
+    els.lightboxPrevBtn.disabled = pageNum <= 1;
+    els.lightboxPrev5Btn.disabled = pageNum <= 1;
+    els.lightboxNextBtn.disabled = pageNum >= total;
+    els.lightboxNext5Btn.disabled = pageNum >= total;
+    els.lightboxLastBtn.disabled = pageNum >= total;
+  }
+
   function openLightbox(pageNum) {
     const total = getTotalPages();
-    if (!total || pageNum < 1 || pageNum > total) return;
-    lightboxPageIndex = pageNum;
+    if (!total) return;
+    const clamped = Math.max(1, Math.min(total, pageNum));
+    lightboxPageIndex = clamped;
     els.lightbox.hidden = false;
     document.body.style.overflow = 'hidden';
-    renderLightboxPage(pageNum);
+    renderLightboxPage(clamped);
   }
 
   function closeLightbox() {
     lightboxPageIndex = null;
     lightboxToken += 1;
     els.lightbox.hidden = true;
-    els.lightboxBody.innerHTML = '';
+    els.lightboxBadge.hidden = true;
+    els.lightboxContent.innerHTML = '';
     document.body.style.overflow = '';
   }
 
   function stepLightbox(delta) {
     if (lightboxPageIndex === null) return;
     const total = getTotalPages();
-    const next = lightboxPageIndex + delta;
-    if (next >= 1 && next <= total) {
-      openLightbox(next);
+    if (!total) return;
+    const target = Math.max(1, Math.min(total, lightboxPageIndex + delta));
+    if (target !== lightboxPageIndex) {
+      openLightbox(target);
+    }
+  }
+
+  function jumpLightboxTo(targetPage) {
+    if (lightboxPageIndex === null) return;
+    const total = getTotalPages();
+    if (!total) return;
+    const clamped = Math.max(1, Math.min(total, targetPage));
+    if (clamped !== lightboxPageIndex) {
+      openLightbox(clamped);
     }
   }
 
   async function renderLightboxPage(pageNum) {
     const total = getTotalPages();
     const token = ++lightboxToken;
-    els.lightboxTitle.textContent = `第 ${pageNum} / ${total} 页`;
-    els.lightboxPrevBtn.disabled = pageNum <= 1;
-    els.lightboxNextBtn.disabled = pageNum >= total;
-    els.lightboxBody.innerHTML = '<div style="padding:24px;color:#64748b;">正在加载高清预览 …</div>';
+    syncLightboxNavState(pageNum, total);
+
+    // 保留上一页画面，仅在右上角显示轻量徽章，避免整块变暗/变亮闪烁
+    els.lightboxBadge.textContent = `正在渲染第 ${pageNum} 页…`;
+    els.lightboxBadge.hidden = false;
 
     try {
+      let nextNode = null;
       if (currentType === 'pdf' && pdfDoc) {
         const page = await pdfDoc.getPage(pageNum);
         if (token !== lightboxToken) return;
@@ -453,20 +722,24 @@ import { FontManager } from './src/fonts.js';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         await page.render({ canvasContext: ctx, viewport: vp, background: '#ffffff' }).promise;
         if (token !== lightboxToken) return;
-        els.lightboxBody.innerHTML = '';
-        els.lightboxBody.appendChild(canvas);
+        nextNode = canvas;
       } else if (currentType === 'pptx' && pptxSlides) {
         const slide = pptxSlides[pageNum - 1];
         if (!slide || token !== lightboxToken) return;
         const canvas = await svgToCanvas(slide.svg, LIGHTBOX_SCALE);
         if (token !== lightboxToken) return;
-        els.lightboxBody.innerHTML = '';
-        els.lightboxBody.appendChild(canvas);
+        nextNode = canvas;
       }
+
+      if (token !== lightboxToken || !nextNode) return;
+      els.lightboxContent.replaceChildren(nextNode);
+      els.lightboxBadge.hidden = true;
     } catch (err) {
       if (token !== lightboxToken) return;
       console.error(err);
-      els.lightboxBody.innerHTML = '<div style="padding:24px;color:#dc2626;">预览加载失败：' + err.message + '</div>';
+      els.lightboxBadge.hidden = true;
+      els.lightboxContent.innerHTML =
+        '<div style="padding:24px;color:#fca5a5;">预览加载失败：' + err.message + '</div>';
     }
   }
 
@@ -496,7 +769,7 @@ import { FontManager } from './src/fonts.js';
   async function resetAll() {
     closeLightbox();
     if (pdfDoc) {
-      try { await pdfDoc.destroy(); } catch (e) { /* ignore */ }
+      try { await pdfDoc.destroy(); } catch (_) {}
       pdfDoc = null;
     }
     currentType = null;
@@ -516,9 +789,7 @@ import { FontManager } from './src/fonts.js';
 
     try {
       const buffer = await file.arrayBuffer();
-      pdfDoc = await pdfjsLib.getDocument(
-        Object.assign({ data: buffer }, PDF_PARAMS)
-      ).promise;
+      pdfDoc = await pdfjsLib.getDocument(Object.assign({ data: buffer }, PDF_PARAMS)).promise;
       currentType = 'pdf';
       fileName = sanitizeName(file.name);
 
@@ -553,7 +824,7 @@ import { FontManager } from './src/fonts.js';
       const p1 = await pdfDoc.getPage(1);
       const vp1 = p1.getViewport({ scale: 1 });
       previewScale = PREVIEW_WIDTH / vp1.width;
-    } catch (e) { previewScale = 0.3; }
+    } catch (_) { previewScale = 0.3; }
 
     const frag = document.createDocumentFragment();
     for (let i = 1; i <= pdfDoc.numPages; i++) {
@@ -601,11 +872,7 @@ import { FontManager } from './src/fonts.js';
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      await page.render({
-        canvasContext: ctx,
-        viewport: vp,
-        background: '#ffffff'
-      }).promise;
+      await page.render({ canvasContext: ctx, viewport: vp, background: '#ffffff' }).promise;
 
       const holder = card.querySelector('.page-preview');
       holder.innerHTML = '';
@@ -627,30 +894,19 @@ import { FontManager } from './src/fonts.js';
   }
 
   function updateAllPdfDims() {
-    Array.prototype.forEach.call(
-      els.pageList.querySelectorAll('.page-card'),
-      updatePdfCardDims
-    );
+    Array.prototype.forEach.call(els.pageList.querySelectorAll('.page-card'), updatePdfCardDims);
   }
 
   async function renderPdfPageToCanvas(pageNum, scale) {
     const page = await pdfDoc.getPage(pageNum);
     const viewport = page.getViewport({ scale });
-
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.floor(viewport.width));
     canvas.height = Math.max(1, Math.floor(viewport.height));
-
     const ctx = canvas.getContext('2d', { alpha: false });
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    await page.render({
-      canvasContext: ctx,
-      viewport: viewport,
-      background: '#ffffff'
-    }).promise;
-
+    await page.render({ canvasContext: ctx, viewport, background: '#ffffff' }).promise;
     return canvas;
   }
 
@@ -716,7 +972,7 @@ import { FontManager } from './src/fonts.js';
 
     try {
       return await html2canvas(docxContainer, {
-        scale: scale,
+        scale,
         useCORS: true,
         allowTaint: false,
         backgroundColor: '#ffffff',
@@ -741,7 +997,6 @@ import { FontManager } from './src/fonts.js';
       const buffer = await file.arrayBuffer();
       const mod = await import(APP_CONFIG.pptxGlimpseEsm);
       const convertPptxToSvg = mod.convertPptxToSvg;
-
       if (typeof convertPptxToSvg !== 'function') {
         throw new Error('pptx-glimpse 未正确加载 convertPptxToSvg');
       }
@@ -800,7 +1055,7 @@ import { FontManager } from './src/fonts.js';
           }
         }
       }
-    } catch (e) { /* ignore */ }
+    } catch (_) {}
     return { width, height };
   }
 
@@ -858,12 +1113,10 @@ import { FontManager } from './src/fonts.js';
           const canvas = document.createElement('canvas');
           canvas.width = Math.max(1, Math.round(dims.width * scale));
           canvas.height = Math.max(1, Math.round(dims.height * scale));
-
           const ctx = canvas.getContext('2d', { alpha: false });
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
           URL.revokeObjectURL(url);
           resolve(canvas);
         } catch (e) {
@@ -913,8 +1166,7 @@ import { FontManager } from './src/fonts.js';
     setBusy(true);
     setStatus('正在导出第 ' + slide.index + ' 张幻灯片 …');
     try {
-      const preparedSvg = await fontManager.preparePptxFonts(slide.svg);
-      slide.svg = preparedSvg;
+      slide.svg = await fontManager.preparePptxFonts(slide.svg);
       const scale = getScale();
       const fmt = getFormat();
       const canvas = await svgToCanvas(slide.svg, scale);
@@ -1248,21 +1500,26 @@ import { FontManager } from './src/fonts.js';
   els.exportAllBtn.addEventListener('click', exportAllPages);
   els.exportLongBtn.addEventListener('click', exportLongImage);
 
-  // 全屏浮层事件
+  // 全屏浮层按钮事件
   els.lightboxCloseBtn.addEventListener('click', closeLightbox);
   els.lightbox.addEventListener('click', (e) => {
     if (e.target === els.lightbox || e.target === els.lightboxBody) {
       closeLightbox();
     }
   });
+  els.lightboxFirstBtn.addEventListener('click', () => jumpLightboxTo(1));
+  els.lightboxPrev5Btn.addEventListener('click', () => stepLightbox(-5));
   els.lightboxPrevBtn.addEventListener('click', () => stepLightbox(-1));
   els.lightboxNextBtn.addEventListener('click', () => stepLightbox(1));
+  els.lightboxNext5Btn.addEventListener('click', () => stepLightbox(5));
+  els.lightboxLastBtn.addEventListener('click', () => jumpLightboxTo(getTotalPages()));
   els.lightboxExportBtn.addEventListener('click', () => {
     if (lightboxPageIndex !== null) {
       exportOnePage(lightboxPageIndex);
     }
   });
 
+  // 键盘导航：Home / End / PageUp / PageDown / ArrowLeft / ArrowRight / Escape
   document.addEventListener('keydown', (e) => {
     if (els.lightbox.hidden) return;
     if (e.key === 'Escape') {
@@ -1273,10 +1530,21 @@ import { FontManager } from './src/fonts.js';
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
       stepLightbox(1);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      jumpLightboxTo(1);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      jumpLightboxTo(getTotalPages());
+    } else if (e.key === 'PageUp') {
+      e.preventDefault();
+      stepLightbox(-5);
+    } else if (e.key === 'PageDown') {
+      e.preventDefault();
+      stepLightbox(5);
     }
   });
 
-  // 初始化：加载本地字体 + 预加载前 3 个在线字体
   updateQualityField();
   Promise.allSettled([
     fontManager.loadLocalFonts(),
