@@ -50,7 +50,7 @@
   .btn.small { padding: 6px 10px; font-size: 13px; width: 100%; }
 
   .controls-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
     gap: 14px 20px;
   }
   .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
@@ -125,7 +125,7 @@
 <div class="wrap">
   <header>
     <h1>文档页面导出工具</h1>
-    <p class="sub">支持 PDF / DOCX / PPTX · 单页导出 · 全部导出 · 拼接长图 · 分辨率可调</p>
+    <p class="sub">支持 PDF / DOCX / PPTX · 本地与在线字体 · 多字体统一映射 · 单页 / 批量 / 长图导出</p>
   </header>
 
   <section class="panel">
@@ -133,7 +133,7 @@
       <div class="drop-inner">
         <div class="drop-icon">📄</div>
         <div>拖拽文件到此处，或 <span class="link">点击选择文件</span></div>
-        <div class="hint">支持 PDF、DOCX、PPTX（旧版 .doc / .ppt 暂不支持纯前端解析）</div>
+        <div class="hint">支持 PDF、DOCX、PPTX（旧版二进制 .doc / .ppt 请先另存为 .docx / .pptx）</div>
       </div>
       <input type="file" id="fileInput"
              accept=".pdf,.docx,.pptx,.doc,.ppt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
@@ -141,8 +141,12 @@
     </div>
   </section>
 
-  <section class="panel" id="controls" hidden>
+  <section class="panel" id="controls">
     <div class="controls-grid">
+      <label class="field">
+        <span>渲染字体</span>
+        <select id="fontSelect"></select>
+      </label>
       <label class="field">
         <span>分辨率倍率</span>
         <input id="scaleInput" type="number" value="2" min="0.5" max="10" step="0.5">
@@ -167,8 +171,8 @@
       </label>
     </div>
     <div class="actions">
-      <button id="exportAllBtn" class="btn" type="button">导出全部页</button>
-      <button id="exportLongBtn" class="btn" type="button">导出拼接长图</button>
+      <button id="exportAllBtn" class="btn" type="button" disabled>导出全部页</button>
+      <button id="exportLongBtn" class="btn" type="button" disabled>导出拼接长图</button>
       <span id="status" class="status"></span>
     </div>
   </section>
@@ -176,9 +180,10 @@
   <main id="pageList" class="page-list"></main>
 
   <div class="tip">
-    <b>格式说明：</b><br>
+    <b>格式与字体说明：</b><br>
     · PDF / PPTX 支持逐页导出与拼接长图。<br>
-    · DOCX 由 docx-preview 渲染为 HTML 后整体截图，<b>不支持精确逐页分割</b>，请使用「导出长图」获取完整内容。<br>
+    · DOCX 由 docx-preview 渲染为 HTML 后导出长图，并自动应用所选字体与 <code>fontMapping</code> 字体统一映射。<br>
+    · 在线字体默认预加载前 3 项，其余在下拉框选中时按需加载；本机已安装字体与配置中的本地字体也可直接使用。<br>
     · 旧版 <b>.doc / .ppt</b> 为二进制 OLE 格式，纯前端无可靠解析方案，请另存为 .docx / .pptx 后重试。<br>
     · 拼接长图受浏览器画布限制（单边 ≤ 32767、面积 ≤ 2.68 亿像素），超限会提示并自动降低分辨率。
   </div>
@@ -192,12 +197,15 @@
 <script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.5/dist/docx-preview.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
-<script>
+<script type="module">
+import { APP_CONFIG } from './src/config.js';
+import { FontManager } from './src/fonts.js';
+
 (function () {
   'use strict';
 
-  /* ======================== 常量 ======================== */
-  const CDN_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  /* ======================== 初始化配置与字体管理器 ======================== */
+  const CDN_BASE = APP_CONFIG.pdfCdnBase;
   pdfjsLib.GlobalWorkerOptions.workerSrc = CDN_BASE + 'pdf.worker.min.js';
 
   const PDF_PARAMS = {
@@ -206,16 +214,19 @@
     standardFontDataUrl: CDN_BASE + 'standard_fonts/'
   };
 
-  const PREVIEW_WIDTH = 200;
-  const MAX_CANVAS_SIDE = 32767;
-  const MAX_CANVAS_AREA = 268435456;
+  const PREVIEW_WIDTH = APP_CONFIG.previewWidth;
+  const MAX_CANVAS_SIDE = APP_CONFIG.maxCanvasSide;
+  const MAX_CANVAS_AREA = APP_CONFIG.maxCanvasArea;
+
+  const fontManager = new FontManager(APP_CONFIG);
 
   /* ======================== 元素 ======================== */
-  const $ = function (id) { return document.getElementById(id); };
+  const $ = (id) => document.getElementById(id);
   const els = {
     dropZone:      $('dropZone'),
     fileInput:     $('fileInput'),
     controls:      $('controls'),
+    fontSelect:    $('fontSelect'),
     scaleInput:    $('scaleInput'),
     formatSelect:  $('formatSelect'),
     qualityField:  $('qualityField'),
@@ -236,8 +247,24 @@
   let pptxSlides = null;         // PPTX 幻灯片数据 [{ svg, width, height }]
   let fileName = 'document';
   let busy = false;
+  let hasDocument = false;
   let previewScale = 0.3;
-  const pageBaseSizes = new Map(); // PDF 页面原始尺寸缓存
+  let activeFont = fontManager.getDefaultFont();
+  const pageBaseSizes = new Map();
+
+  /* ======================== 字体下拉框初始化 ======================== */
+  function initFontSelector() {
+    const fonts = fontManager.getFonts();
+    els.fontSelect.innerHTML = '';
+    fonts.forEach((f) => {
+      const opt = document.createElement('option');
+      opt.value = f.value;
+      opt.textContent = f.label;
+      if (f.value === activeFont) opt.selected = true;
+      els.fontSelect.appendChild(opt);
+    });
+    document.body.style.fontFamily = fontManager.buildCssFontStack(activeFont);
+  }
 
   /* ======================== 通用工具 ======================== */
   function setStatus(msg, type) {
@@ -267,12 +294,12 @@
   }
 
   function sleep(ms) {
-    return new Promise(function (r) { setTimeout(r, ms); });
+    return new Promise((r) => setTimeout(r, ms));
   }
 
   function canvasToBlob(canvas, type, quality) {
-    return new Promise(function (resolve, reject) {
-      canvas.toBlob(function (blob) {
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
         blob ? resolve(blob) : reject(new Error('图片生成失败，画布可能超出浏览器限制'));
       }, type, quality);
     });
@@ -287,16 +314,18 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(function () { URL.revokeObjectURL(url); }, 15000);
+    setTimeout(() => URL.revokeObjectURL(url), 15000);
   }
 
   function setBusy(v) {
     busy = v;
-    [els.exportAllBtn, els.exportLongBtn].forEach(function (b) { b.disabled = v; });
+    const disableExport = v || !hasDocument;
+    [els.exportAllBtn, els.exportLongBtn].forEach((b) => { b.disabled = disableExport; });
     els.fileInput.disabled = v;
+    els.fontSelect.disabled = v;
     Array.prototype.forEach.call(
       document.querySelectorAll('.export-one'),
-      function (b) { b.disabled = v; }
+      (b) => { b.disabled = v; }
     );
   }
 
@@ -339,12 +368,14 @@
       pdfDoc = null;
     }
     currentType = null;
+    hasDocument = false;
     docxContainer = null;
     pptxSlides = null;
     pageBaseSizes.clear();
     els.pageList.innerHTML = '';
-    els.controls.hidden = true;
     els.docxRender.innerHTML = '';
+    els.exportAllBtn.disabled = true;
+    els.exportLongBtn.disabled = true;
   }
 
   /* ======================== PDF ======================== */
@@ -354,15 +385,16 @@
     setStatus('正在解析 PDF …');
 
     try {
+      await fontManager.ensureFontReady(activeFont);
       const buffer = await file.arrayBuffer();
       pdfDoc = await pdfjsLib.getDocument(
         Object.assign({ data: buffer }, PDF_PARAMS)
       ).promise;
       currentType = 'pdf';
+      hasDocument = true;
       fileName = sanitizeName(file.name);
 
       await buildPdfPageList();
-      els.controls.hidden = false;
       els.exportAllBtn.hidden = false;
       els.exportLongBtn.hidden = false;
       updateQualityField();
@@ -375,8 +407,8 @@
     }
   }
 
-  const previewObserver = new IntersectionObserver(function (entries) {
-    entries.forEach(function (entry) {
+  const previewObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
       if (entry.isIntersecting) {
         previewObserver.unobserve(entry.target);
         renderPdfPreview(entry.target);
@@ -406,16 +438,14 @@
           '<span class="page-dims"></span>' +
         '</div>' +
         '<button type="button" class="btn small export-one">导出此页</button>';
-      card.querySelector('.export-one').addEventListener('click', function () {
-        exportOnePage(i);
-      });
+      card.querySelector('.export-one').addEventListener('click', () => exportOnePage(i));
       frag.appendChild(card);
     }
     els.pageList.appendChild(frag);
 
     Array.prototype.forEach.call(
       els.pageList.querySelectorAll('.page-card'),
-      function (c) { previewObserver.observe(c); }
+      (c) => previewObserver.observe(c)
     );
   }
 
@@ -500,6 +530,7 @@
     setStatus('正在渲染 DOCX …');
 
     try {
+      await fontManager.ensureFontReady(activeFont);
       const buffer = await file.arrayBuffer();
       const container = els.docxRender;
       container.innerHTML = '';
@@ -515,18 +546,20 @@
         renderEndnotes: true
       });
 
+      fontManager.applyFontMappingToContainer(container, activeFont);
+
       currentType = 'docx';
+      hasDocument = true;
       docxContainer = container;
       fileName = sanitizeName(file.name);
 
       els.pageList.innerHTML =
         '<div class="docx-notice">' +
-          'DOCX 已渲染为连续 HTML 内容。<br>' +
+          'DOCX 已渲染为连续 HTML 内容（已应用字体映射：' + fontManager.resolveMappedFont(activeFont) + '）。<br>' +
           '受浏览器分页限制，无法精确拆分为独立页面图片，请使用「导出拼接长图」获取完整文档。' +
         '</div>';
 
-      els.controls.hidden = false;
-      els.exportAllBtn.hidden = true;   // DOCX 不提供逐页批量导出
+      els.exportAllBtn.hidden = true;
       els.exportLongBtn.hidden = false;
       updateQualityField();
       setStatus('DOCX 渲染完成，可导出长图', 'ok');
@@ -540,17 +573,20 @@
 
   async function captureDocxLongImage() {
     if (!docxContainer) throw new Error('DOCX 内容未就绪');
+    await fontManager.ensureFontReady(activeFont);
+    fontManager.applyFontMappingToContainer(docxContainer, activeFont);
 
     const scale = getScale();
-
-    // 临时将容器移入视口以保证 html2canvas 正确捕获
     const originalLeft = docxContainer.style.left;
+    const originalPos = docxContainer.style.position;
+    const originalZ = docxContainer.style.zIndex;
+
     docxContainer.style.left = '0';
     docxContainer.style.position = 'relative';
     docxContainer.style.zIndex = '99999';
 
     try {
-      const canvas = await html2canvas(docxContainer, {
+      return await html2canvas(docxContainer, {
         scale: scale,
         useCORS: true,
         allowTaint: false,
@@ -559,11 +595,10 @@
         windowWidth: docxContainer.scrollWidth,
         windowHeight: docxContainer.scrollHeight
       });
-      return canvas;
     } finally {
       docxContainer.style.left = originalLeft;
-      docxContainer.style.position = 'absolute';
-      docxContainer.style.zIndex = '';
+      docxContainer.style.position = originalPos;
+      docxContainer.style.zIndex = originalZ;
     }
   }
 
@@ -574,10 +609,9 @@
     setStatus('正在解析 PPTX …');
 
     try {
+      await fontManager.ensureFontReady(activeFont);
       const buffer = await file.arrayBuffer();
-
-      // 动态导入 pptx-glimpse（ESM）
-      const mod = await import('https://cdn.jsdelivr.net/npm/pptx-glimpse@5.3.1/+esm');
+      const mod = await import(APP_CONFIG.pptxGlimpseEsm);
       const convertPptxToSvg = mod.convertPptxToSvg;
 
       if (typeof convertPptxToSvg !== 'function') {
@@ -585,17 +619,18 @@
       }
 
       const result = await convertPptxToSvg(buffer);
-
       if (!result || !Array.isArray(result.slides)) {
         throw new Error('PPTX 解析结果为空');
       }
 
       currentType = 'pptx';
-      pptxSlides = result.slides.map(function (slide, idx) {
-        // slide.svg 是 SVG 字符串；提取尺寸
-        const dims = extractSvgDimensions(slide.svg);
+      hasDocument = true;
+      pptxSlides = result.slides.map((slide, idx) => {
+        const mappedSvg = applyFontMappingToSvg(slide.svg, activeFont);
+        const dims = extractSvgDimensions(mappedSvg);
         return {
-          svg: slide.svg,
+          rawSvg: slide.svg,
+          svg: mappedSvg,
           width: dims.width,
           height: dims.height,
           index: idx + 1
@@ -605,7 +640,6 @@
       fileName = sanitizeName(file.name);
       buildPptxPageList();
 
-      els.controls.hidden = false;
       els.exportAllBtn.hidden = false;
       els.exportLongBtn.hidden = false;
       updateQualityField();
@@ -618,14 +652,31 @@
     }
   }
 
-  function extractSvgDimensions(svg) {
-    // 尝试从 width/height 或 viewBox 中读取
-    let width = 960, height = 540;
+  function applyFontMappingToSvg(svgStr, selectedFont) {
+    const stack = fontManager.buildCssFontStack(selectedFont);
     try {
       const parser = new DOMParser();
-      const doc = parser.parseFromString(svg, 'image/svg+xml');
+      const doc = parser.parseFromString(svgStr, 'image/svg+xml');
       const svgEl = doc.documentElement;
+      svgEl.setAttribute('font-family', stack);
 
+      doc.querySelectorAll('[font-family]').forEach((node) => {
+        const ff = node.getAttribute('font-family');
+        const mapped = fontManager.resolveMappedFont(ff);
+        node.setAttribute('font-family', fontManager.buildCssFontStack(mapped));
+      });
+
+      return new XMLSerializer().serializeToString(doc);
+    } catch (_) {
+      return svgStr;
+    }
+  }
+
+  function extractSvgDimensions(svg) {
+    let width = 960, height = 540;
+    try {
+      const doc = new DOMParser().parseFromString(svg, 'image/svg+xml');
+      const svgEl = doc.documentElement;
       const wAttr = svgEl.getAttribute('width');
       const hAttr = svgEl.getAttribute('height');
       if (wAttr && hAttr) {
@@ -642,21 +693,20 @@
         }
       }
     } catch (e) { /* ignore */ }
-    return { width: width, height: height };
+    return { width, height };
   }
 
   function buildPptxPageList() {
     els.pageList.innerHTML = '';
     const frag = document.createDocumentFragment();
 
-    pptxSlides.forEach(function (slide) {
+    pptxSlides.forEach((slide) => {
       const card = document.createElement('div');
       card.className = 'page-card';
       card.dataset.page = String(slide.index);
 
       const previewDiv = document.createElement('div');
       previewDiv.className = 'page-preview';
-      // 直接嵌入 SVG 作为预览
       previewDiv.innerHTML = slide.svg;
 
       const metaDiv = document.createElement('div');
@@ -669,9 +719,7 @@
       btn.type = 'button';
       btn.className = 'btn small export-one';
       btn.textContent = '导出此页';
-      btn.addEventListener('click', function () {
-        exportPptxSlide(slide);
-      });
+      btn.addEventListener('click', () => exportPptxSlide(slide));
 
       card.appendChild(previewDiv);
       card.appendChild(metaDiv);
@@ -683,11 +731,10 @@
   }
 
   function svgToCanvas(svg, scale) {
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
       const dims = extractSvgDimensions(svg);
       const img = new Image();
 
-      // 确保 SVG 有明确尺寸
       let svgData = svg;
       if (!/width=/.test(svgData.slice(0, 500))) {
         svgData = svgData.replace('<svg', '<svg width="' + dims.width + '" height="' + dims.height + '"');
@@ -696,7 +743,7 @@
       const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
       const url = URL.createObjectURL(blob);
 
-      img.onload = function () {
+      img.onload = () => {
         try {
           const canvas = document.createElement('canvas');
           canvas.width = Math.max(1, Math.round(dims.width * scale));
@@ -715,7 +762,7 @@
         }
       };
 
-      img.onerror = function () {
+      img.onerror = () => {
         URL.revokeObjectURL(url);
         reject(new Error('SVG 转换为图片失败'));
       };
@@ -737,6 +784,7 @@
     setBusy(true);
     setStatus('正在导出第 ' + pageNum + ' 页 …');
     try {
+      await fontManager.ensureFontReady(activeFont);
       const scale = getScale();
       const fmt = getFormat();
       const canvas = await renderPdfPageToCanvas(pageNum, scale);
@@ -756,6 +804,7 @@
     setBusy(true);
     setStatus('正在导出第 ' + slide.index + ' 张幻灯片 …');
     try {
+      await fontManager.ensureFontReady(activeFont);
       const scale = getScale();
       const fmt = getFormat();
       const canvas = await svgToCanvas(slide.svg, scale);
@@ -773,21 +822,18 @@
   /* ======================== 导出全部 ======================== */
   async function exportAllPages() {
     if (busy) return;
-
     if (currentType === 'docx') {
-      // DOCX 不支持逐页批量，引导使用长图
       await exportLongImage();
       return;
     }
-
     if (currentType === 'pptx') {
       await exportAllPptx();
       return;
     }
-
     if (currentType !== 'pdf' || !pdfDoc) return;
-    setBusy(true);
 
+    setBusy(true);
+    await fontManager.ensureFontReady(activeFont);
     const scale = getScale();
     const fmt = getFormat();
     const total = pdfDoc.numPages;
@@ -808,7 +854,7 @@
         }
         setStatus('正在打包 ZIP …');
         const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' },
-          function (meta) { setStatus('正在打包 ZIP … ' + meta.percent.toFixed(0) + '%'); });
+          (meta) => setStatus('正在打包 ZIP … ' + meta.percent.toFixed(0) + '%'));
         downloadBlob(zipBlob, fileName + '_images.zip');
         setStatus('全部 ' + total + ' 页已打包完成', 'ok');
       } else {
@@ -831,7 +877,7 @@
   async function exportAllPptx() {
     if (!pptxSlides || !pptxSlides.length) return;
     setBusy(true);
-
+    await fontManager.ensureFontReady(activeFont);
     const scale = getScale();
     const fmt = getFormat();
     const total = pptxSlides.length;
@@ -853,7 +899,7 @@
         }
         setStatus('正在打包 ZIP …');
         const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' },
-          function (meta) { setStatus('正在打包 ZIP … ' + meta.percent.toFixed(0) + '%'); });
+          (meta) => setStatus('正在打包 ZIP … ' + meta.percent.toFixed(0) + '%'));
         downloadBlob(zipBlob, fileName + '_slides.zip');
         setStatus('全部 ' + total + ' 张幻灯片已打包完成', 'ok');
       } else {
@@ -877,7 +923,6 @@
   /* ======================== 导出长图 ======================== */
   async function exportLongImage() {
     if (busy) return;
-
     if (currentType === 'docx') {
       await exportDocxLong();
       return;
@@ -893,6 +938,7 @@
   async function exportPdfLong() {
     setBusy(true);
     try {
+      await fontManager.ensureFontReady(activeFont);
       let scale = getScale();
       let layout = await computePdfLongLayout(scale);
       const shrink = computeShrink(layout.width, layout.height);
@@ -919,7 +965,7 @@
       for (let i = 0; i < list.length; i++) {
         const m = list[i];
         setStatus('正在拼接 ' + (i + 1) + '/' + list.length + ' …');
-        const vp = m.page.getViewport({ scale: scale });
+        const vp = m.page.getViewport({ scale });
         const pc = document.createElement('canvas');
         pc.width = m.w; pc.height = m.h;
         const pctx = pc.getContext('2d', { alpha: false });
@@ -953,28 +999,27 @@
       const vp = page.getViewport({ scale });
       const w = Math.max(1, Math.floor(vp.width));
       const h = Math.max(1, Math.floor(vp.height));
-      metas.push({ page: page, w: w, h: h });
+      metas.push({ page, w, h });
       maxWidth = Math.max(maxWidth, w);
       totalHeight += h;
       if (i % 10 === 0) setStatus('正在计算尺寸 ' + i + '/' + pdfDoc.numPages + ' …');
     }
-    return { metas: metas, width: maxWidth, height: totalHeight };
+    return { metas, width: maxWidth, height: totalHeight };
   }
 
   async function exportPptxLong() {
     if (!pptxSlides || !pptxSlides.length) return;
     setBusy(true);
     try {
+      await fontManager.ensureFontReady(activeFont);
       let scale = getScale();
-      const dims = pptxSlides.map(function (s) {
-        return {
-          w: Math.max(1, Math.round(s.width * scale)),
-          h: Math.max(1, Math.round(s.height * scale))
-        };
-      });
+      const dims = pptxSlides.map((s) => ({
+        w: Math.max(1, Math.round(s.width * scale)),
+        h: Math.max(1, Math.round(s.height * scale))
+      }));
 
       let maxWidth = 0, totalHeight = 0;
-      dims.forEach(function (d) {
+      dims.forEach((d) => {
         maxWidth = Math.max(maxWidth, d.w);
         totalHeight += d.h;
       });
@@ -987,7 +1032,7 @@
           '将自动降低分辨率到约 ' + (shrink * 100).toFixed(0) + '%（' + nw + ' × ' + nh + '）。\n\n是否继续？');
         if (!ok) { setStatus('已取消'); return; }
         scale = scale * shrink;
-        dims.forEach(function (d) { d.w = Math.round(d.w * shrink); d.h = Math.round(d.h * shrink); });
+        dims.forEach((d) => { d.w = Math.round(d.w * shrink); d.h = Math.round(d.h * shrink); });
         maxWidth = Math.round(maxWidth * shrink);
         totalHeight = Math.round(totalHeight * shrink);
       }
@@ -1043,50 +1088,75 @@
   function ensureJSZip() {
     if (window.JSZip) return Promise.resolve();
     if (jszipPromise) return jszipPromise;
-    jszipPromise = new Promise(function (resolve, reject) {
+    jszipPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+      s.src = APP_CONFIG.jszipCdn;
       s.onload = resolve;
-      s.onerror = function () { reject(new Error('JSZip 加载失败，请改用「逐张下载」')); };
+      s.onerror = () => reject(new Error('JSZip 加载失败，请改用「逐张下载」'));
       document.head.appendChild(s);
     });
     return jszipPromise;
   }
 
   /* ======================== 事件 ======================== */
-  els.dropZone.addEventListener('click', function () {
+  els.fontSelect.addEventListener('change', async () => {
+    activeFont = els.fontSelect.value;
+    document.body.style.fontFamily = fontManager.buildCssFontStack(activeFont);
+    setBusy(true);
+    setStatus('正在加载字体与映射配置 …');
+    try {
+      const mapped = await fontManager.ensureFontReady(activeFont);
+      if (currentType === 'docx' && docxContainer) {
+        fontManager.applyFontMappingToContainer(docxContainer, activeFont);
+      } else if (currentType === 'pptx' && pptxSlides) {
+        pptxSlides = pptxSlides.map((s) => {
+          const updatedSvg = applyFontMappingToSvg(s.rawSvg, activeFont);
+          return Object.assign({}, s, { svg: updatedSvg });
+        });
+        buildPptxPageList();
+      }
+      setStatus('已切换字体（统一映射为：' + mapped + '）', 'ok');
+    } catch (err) {
+      console.error(err);
+      setStatus('字体加载提示：' + err.message, 'warn');
+    } finally {
+      setBusy(false);
+    }
+  });
+
+  els.dropZone.addEventListener('click', () => {
     if (!busy) els.fileInput.click();
   });
-  els.fileInput.addEventListener('change', function () {
+  els.fileInput.addEventListener('change', () => {
     const f = els.fileInput.files && els.fileInput.files[0];
     if (f) handleFile(f);
     els.fileInput.value = '';
   });
 
-  ['dragenter', 'dragover'].forEach(function (ev) {
-    els.dropZone.addEventListener(ev, function (e) {
+  ['dragenter', 'dragover'].forEach((ev) => {
+    els.dropZone.addEventListener(ev, (e) => {
       e.preventDefault(); e.stopPropagation();
       els.dropZone.classList.add('dragover');
     });
   });
-  ['dragleave', 'drop'].forEach(function (ev) {
-    els.dropZone.addEventListener(ev, function (e) {
+  ['dragleave', 'drop'].forEach((ev) => {
+    els.dropZone.addEventListener(ev, (e) => {
       e.preventDefault(); e.stopPropagation();
       if (ev === 'dragleave' && e.relatedTarget && els.dropZone.contains(e.relatedTarget)) return;
       els.dropZone.classList.remove('dragover');
     });
   });
-  els.dropZone.addEventListener('drop', function (e) {
+  els.dropZone.addEventListener('drop', (e) => {
     const files = e.dataTransfer && e.dataTransfer.files;
     if (files && files.length) handleFile(files[0]);
   });
-  window.addEventListener('dragover', function (e) { e.preventDefault(); });
-  window.addEventListener('drop', function (e) { e.preventDefault(); });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => e.preventDefault());
 
   els.scaleInput.addEventListener('input', updateAllPdfDims);
   els.scaleInput.addEventListener('change', updateAllPdfDims);
   els.formatSelect.addEventListener('change', updateQualityField);
-  els.qualityInput.addEventListener('input', function () {
+  els.qualityInput.addEventListener('input', () => {
     els.qualityValue.textContent = parseFloat(els.qualityInput.value).toFixed(2);
   });
   function updateQualityField() {
@@ -1097,7 +1167,13 @@
   els.exportAllBtn.addEventListener('click', exportAllPages);
   els.exportLongBtn.addEventListener('click', exportLongImage);
 
+  // 启动初始化：字体下拉框 + 本地字体 + 预加载前 3 个在线字体
+  initFontSelector();
   updateQualityField();
+  Promise.allSettled([
+    fontManager.loadLocalFonts(),
+    fontManager.preloadDefaultOnlineFonts()
+  ]);
 })();
 </script>
 </body>
