@@ -50,7 +50,7 @@
   .btn.small { padding: 6px 10px; font-size: 13px; width: 100%; }
 
   .controls-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
     gap: 14px 20px;
   }
   .field { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
@@ -84,7 +84,11 @@
   .page-preview {
     background: #eef2f7; border-radius: 6px; min-height: 140px;
     display: flex; align-items: center; justify-content: center;
-    overflow: hidden; color: #94a3b8; font-size: 13px;
+    overflow: hidden; color: #94a3b8; font-size: 13px; cursor: zoom-in;
+    transition: box-shadow .15s, transform .15s;
+  }
+  .page-preview:hover {
+    box-shadow: 0 0 0 2px var(--accent);
   }
   .page-preview canvas { max-width: 100%; height: auto; display: block; }
   .page-preview svg { max-width: 100%; height: auto; display: block; }
@@ -102,6 +106,57 @@
     background: #f8fafc;
     border: 1px dashed var(--border);
     border-radius: var(--radius);
+  }
+
+  /* 全屏预览浮层 */
+  .lightbox {
+    position: fixed; inset: 0; z-index: 100000;
+    background: rgba(15, 23, 42, 0.9);
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 16px 20px;
+  }
+  .lightbox-top {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    color: #f8fafc; font-size: 14px;
+  }
+  .lightbox-title { font-weight: 600; }
+  .lightbox-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .lightbox-btn {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid rgba(255,255,255,.22);
+    background: rgba(255,255,255,.1); color: #fff; font-size: 13px; cursor: pointer;
+    transition: background .15s;
+  }
+  .lightbox-btn:hover:not(:disabled) { background: rgba(255,255,255,.22); }
+  .lightbox-btn:disabled { opacity: .35; cursor: not-allowed; }
+  .lightbox-btn.primary { background: var(--accent); border-color: var(--accent); }
+  .lightbox-btn.primary:hover:not(:disabled) { background: var(--accent-hover); }
+
+  .lightbox-stage {
+    flex: 1; min-height: 0;
+    display: flex; align-items: center; justify-content: center;
+    gap: 16px; padding: 14px 0; position: relative;
+  }
+  .lightbox-canvas-wrap {
+    max-width: calc(100vw - 140px); max-height: calc(100vh - 130px);
+    overflow: auto; display: flex; align-items: center; justify-content: center;
+    background: #fff; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,.45);
+  }
+  .lightbox-canvas-wrap img,
+  .lightbox-canvas-wrap canvas {
+    max-width: 100%; max-height: calc(100vh - 140px);
+    width: auto; height: auto; display: block;
+  }
+  .lightbox-nav {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.25);
+    background: rgba(15, 23, 42, .65); color: #fff;
+    font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background .15s;
+  }
+  .lightbox-nav:hover:not(:disabled) { background: rgba(37, 99, 235, .85); }
+  .lightbox-nav:disabled { opacity: .25; cursor: not-allowed; }
+  .lightbox-hint {
+    text-align: center; color: #94a3b8; font-size: 12px;
   }
 
   /* DOCX 渲染容器（离屏） */
@@ -125,7 +180,7 @@
 <div class="wrap">
   <header>
     <h1>文档页面导出工具</h1>
-    <p class="sub">支持 PDF / DOCX / PPTX · 本地与在线字体 · 多字体统一映射 · 单页 / 批量 / 长图导出</p>
+    <p class="sub">支持 PDF / DOCX / PPTX · 缩略图全屏预览 · 单页 / 批量 / 长图导出</p>
   </header>
 
   <section class="panel">
@@ -141,12 +196,8 @@
     </div>
   </section>
 
-  <section class="panel" id="controls">
+  <section class="panel" id="controls" hidden>
     <div class="controls-grid">
-      <label class="field">
-        <span>渲染字体</span>
-        <select id="fontSelect"></select>
-      </label>
       <label class="field">
         <span>分辨率倍率</span>
         <input id="scaleInput" type="number" value="2" min="0.5" max="10" step="0.5">
@@ -171,8 +222,8 @@
       </label>
     </div>
     <div class="actions">
-      <button id="exportAllBtn" class="btn" type="button" disabled>导出全部页</button>
-      <button id="exportLongBtn" class="btn" type="button" disabled>导出拼接长图</button>
+      <button id="exportAllBtn" class="btn" type="button">导出全部页</button>
+      <button id="exportLongBtn" class="btn" type="button">导出拼接长图</button>
       <span id="status" class="status"></span>
     </div>
   </section>
@@ -181,12 +232,29 @@
 
   <div class="tip">
     <b>格式与字体说明：</b><br>
-    · PDF / PPTX 支持逐页导出与拼接长图。<br>
-    · DOCX 由 docx-preview 渲染为 HTML 后导出长图，并自动应用所选字体与 <code>fontMapping</code> 字体统一映射。<br>
-    · 在线字体默认预加载前 3 项，其余在下拉框选中时按需加载；本机已安装字体与配置中的本地字体也可直接使用。<br>
+    · PDF / PPTX 支持逐页导出、点击缩略图全屏预览与拼接长图。<br>
+    · DOCX / PPTX 内使用的字体会自动按 <code>src/config.js</code> 中的 <code>fontMapping</code> 统一归并，并加载本地字体与在线字体。<br>
+    · DOCX 由 docx-preview 渲染为 HTML 后整体导出长图，不支持精确逐页分割。<br>
     · 旧版 <b>.doc / .ppt</b> 为二进制 OLE 格式，纯前端无可靠解析方案，请另存为 .docx / .pptx 后重试。<br>
     · 拼接长图受浏览器画布限制（单边 ≤ 32767、面积 ≤ 2.68 亿像素），超限会提示并自动降低分辨率。
   </div>
+</div>
+
+<!-- 全屏预览浮层 -->
+<div id="lightbox" class="lightbox" role="dialog" aria-modal="true" hidden>
+  <div class="lightbox-top">
+    <span id="lightboxTitle" class="lightbox-title">第 1 页</span>
+    <div class="lightbox-actions">
+      <button id="lightboxExportBtn" class="lightbox-btn primary" type="button">导出此页</button>
+      <button id="lightboxCloseBtn" class="lightbox-btn" type="button">关闭 (Esc)</button>
+    </div>
+  </div>
+  <div class="lightbox-stage">
+    <button id="lightboxPrevBtn" class="lightbox-nav" type="button" title="上一页 (←)">‹</button>
+    <div id="lightboxBody" class="lightbox-canvas-wrap"></div>
+    <button id="lightboxNextBtn" class="lightbox-nav" type="button" title="下一页 (→)">›</button>
+  </div>
+  <div class="lightbox-hint">使用 ← / → 方向键切换页面，点击遮罩或按 Esc 关闭全屏预览</div>
 </div>
 
 <!-- DOCX 离屏渲染容器 -->
@@ -215,6 +283,7 @@ import { FontManager } from './src/fonts.js';
   };
 
   const PREVIEW_WIDTH = APP_CONFIG.previewWidth;
+  const LIGHTBOX_SCALE = APP_CONFIG.lightboxMaxScale || 2;
   const MAX_CANVAS_SIDE = APP_CONFIG.maxCanvasSide;
   const MAX_CANVAS_AREA = APP_CONFIG.maxCanvasArea;
 
@@ -223,48 +292,40 @@ import { FontManager } from './src/fonts.js';
   /* ======================== 元素 ======================== */
   const $ = (id) => document.getElementById(id);
   const els = {
-    dropZone:      $('dropZone'),
-    fileInput:     $('fileInput'),
-    controls:      $('controls'),
-    fontSelect:    $('fontSelect'),
-    scaleInput:    $('scaleInput'),
-    formatSelect:  $('formatSelect'),
-    qualityField:  $('qualityField'),
-    qualityInput:  $('qualityInput'),
-    qualityValue:  $('qualityValue'),
-    downloadMode:  $('downloadMode'),
-    exportAllBtn:  $('exportAllBtn'),
-    exportLongBtn: $('exportLongBtn'),
-    status:        $('status'),
-    pageList:      $('pageList'),
-    docxRender:    $('docx-render')
+    dropZone:          $('dropZone'),
+    fileInput:         $('fileInput'),
+    controls:          $('controls'),
+    scaleInput:        $('scaleInput'),
+    formatSelect:      $('formatSelect'),
+    qualityField:      $('qualityField'),
+    qualityInput:      $('qualityInput'),
+    qualityValue:      $('qualityValue'),
+    downloadMode:      $('downloadMode'),
+    exportAllBtn:      $('exportAllBtn'),
+    exportLongBtn:     $('exportLongBtn'),
+    status:            $('status'),
+    pageList:          $('pageList'),
+    docxRender:        $('docx-render'),
+    lightbox:          $('lightbox'),
+    lightboxTitle:     $('lightboxTitle'),
+    lightboxBody:      $('lightboxBody'),
+    lightboxPrevBtn:   $('lightboxPrevBtn'),
+    lightboxNextBtn:   $('lightboxNextBtn'),
+    lightboxExportBtn: $('lightboxExportBtn'),
+    lightboxCloseBtn:  $('lightboxCloseBtn')
   };
 
   /* ======================== 状态 ======================== */
   let currentType = null;        // 'pdf' | 'docx' | 'pptx'
   let pdfDoc = null;             // PDF.js 文档对象
   let docxContainer = null;      // DOCX 渲染容器
-  let pptxSlides = null;         // PPTX 幻灯片数据 [{ svg, width, height }]
+  let pptxSlides = null;         // PPTX 幻灯片数据 [{ svg, width, height, index }]
   let fileName = 'document';
   let busy = false;
-  let hasDocument = false;
   let previewScale = 0.3;
-  let activeFont = fontManager.getDefaultFont();
+  let lightboxPageIndex = null;  // 1-based 页码
+  let lightboxToken = 0;
   const pageBaseSizes = new Map();
-
-  /* ======================== 字体下拉框初始化 ======================== */
-  function initFontSelector() {
-    const fonts = fontManager.getFonts();
-    els.fontSelect.innerHTML = '';
-    fonts.forEach((f) => {
-      const opt = document.createElement('option');
-      opt.value = f.value;
-      opt.textContent = f.label;
-      if (f.value === activeFont) opt.selected = true;
-      els.fontSelect.appendChild(opt);
-    });
-    document.body.style.fontFamily = fontManager.buildCssFontStack(activeFont);
-  }
 
   /* ======================== 通用工具 ======================== */
   function setStatus(msg, type) {
@@ -293,6 +354,12 @@ import { FontManager } from './src/fonts.js';
     };
   }
 
+  function getTotalPages() {
+    if (currentType === 'pdf' && pdfDoc) return pdfDoc.numPages;
+    if (currentType === 'pptx' && Array.isArray(pptxSlides)) return pptxSlides.length;
+    return 0;
+  }
+
   function sleep(ms) {
     return new Promise((r) => setTimeout(r, ms));
   }
@@ -319,10 +386,9 @@ import { FontManager } from './src/fonts.js';
 
   function setBusy(v) {
     busy = v;
-    const disableExport = v || !hasDocument;
-    [els.exportAllBtn, els.exportLongBtn].forEach((b) => { b.disabled = disableExport; });
+    [els.exportAllBtn, els.exportLongBtn].forEach((b) => { b.disabled = v; });
     els.fileInput.disabled = v;
-    els.fontSelect.disabled = v;
+    els.lightboxExportBtn.disabled = v;
     Array.prototype.forEach.call(
       document.querySelectorAll('.export-one'),
       (b) => { b.disabled = v; }
@@ -337,6 +403,71 @@ import { FontManager } from './src/fonts.js';
       s = Math.min(s, Math.sqrt(MAX_CANVAS_AREA / (w * h)));
     }
     return s;
+  }
+
+  /* ======================== 全屏浮层预览 ======================== */
+  function openLightbox(pageNum) {
+    const total = getTotalPages();
+    if (!total || pageNum < 1 || pageNum > total) return;
+    lightboxPageIndex = pageNum;
+    els.lightbox.hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderLightboxPage(pageNum);
+  }
+
+  function closeLightbox() {
+    lightboxPageIndex = null;
+    lightboxToken += 1;
+    els.lightbox.hidden = true;
+    els.lightboxBody.innerHTML = '';
+    document.body.style.overflow = '';
+  }
+
+  function stepLightbox(delta) {
+    if (lightboxPageIndex === null) return;
+    const total = getTotalPages();
+    const next = lightboxPageIndex + delta;
+    if (next >= 1 && next <= total) {
+      openLightbox(next);
+    }
+  }
+
+  async function renderLightboxPage(pageNum) {
+    const total = getTotalPages();
+    const token = ++lightboxToken;
+    els.lightboxTitle.textContent = `第 ${pageNum} / ${total} 页`;
+    els.lightboxPrevBtn.disabled = pageNum <= 1;
+    els.lightboxNextBtn.disabled = pageNum >= total;
+    els.lightboxBody.innerHTML = '<div style="padding:24px;color:#64748b;">正在加载高清预览 …</div>';
+
+    try {
+      if (currentType === 'pdf' && pdfDoc) {
+        const page = await pdfDoc.getPage(pageNum);
+        if (token !== lightboxToken) return;
+        const vp = page.getViewport({ scale: LIGHTBOX_SCALE });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.floor(vp.width));
+        canvas.height = Math.max(1, Math.floor(vp.height));
+        const ctx = canvas.getContext('2d', { alpha: false });
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        await page.render({ canvasContext: ctx, viewport: vp, background: '#ffffff' }).promise;
+        if (token !== lightboxToken) return;
+        els.lightboxBody.innerHTML = '';
+        els.lightboxBody.appendChild(canvas);
+      } else if (currentType === 'pptx' && pptxSlides) {
+        const slide = pptxSlides[pageNum - 1];
+        if (!slide || token !== lightboxToken) return;
+        const canvas = await svgToCanvas(slide.svg, LIGHTBOX_SCALE);
+        if (token !== lightboxToken) return;
+        els.lightboxBody.innerHTML = '';
+        els.lightboxBody.appendChild(canvas);
+      }
+    } catch (err) {
+      if (token !== lightboxToken) return;
+      console.error(err);
+      els.lightboxBody.innerHTML = '<div style="padding:24px;color:#dc2626;">预览加载失败：' + err.message + '</div>';
+    }
   }
 
   /* ======================== 文件入口 ======================== */
@@ -363,19 +494,18 @@ import { FontManager } from './src/fonts.js';
 
   /* ======================== 重置 ======================== */
   async function resetAll() {
+    closeLightbox();
     if (pdfDoc) {
       try { await pdfDoc.destroy(); } catch (e) { /* ignore */ }
       pdfDoc = null;
     }
     currentType = null;
-    hasDocument = false;
     docxContainer = null;
     pptxSlides = null;
     pageBaseSizes.clear();
     els.pageList.innerHTML = '';
+    els.controls.hidden = true;
     els.docxRender.innerHTML = '';
-    els.exportAllBtn.disabled = true;
-    els.exportLongBtn.disabled = true;
   }
 
   /* ======================== PDF ======================== */
@@ -385,20 +515,19 @@ import { FontManager } from './src/fonts.js';
     setStatus('正在解析 PDF …');
 
     try {
-      await fontManager.ensureFontReady(activeFont);
       const buffer = await file.arrayBuffer();
       pdfDoc = await pdfjsLib.getDocument(
         Object.assign({ data: buffer }, PDF_PARAMS)
       ).promise;
       currentType = 'pdf';
-      hasDocument = true;
       fileName = sanitizeName(file.name);
 
       await buildPdfPageList();
+      els.controls.hidden = false;
       els.exportAllBtn.hidden = false;
       els.exportLongBtn.hidden = false;
       updateQualityField();
-      setStatus('PDF 已加载：共 ' + pdfDoc.numPages + ' 页', 'ok');
+      setStatus('PDF 已加载：共 ' + pdfDoc.numPages + ' 页（点击缩略图可全屏预览）', 'ok');
     } catch (err) {
       console.error(err);
       setStatus('PDF 解析失败：' + err.message, 'error');
@@ -432,12 +561,14 @@ import { FontManager } from './src/fonts.js';
       card.className = 'page-card';
       card.dataset.page = String(i);
       card.innerHTML =
-        '<div class="page-preview"><div>第 ' + i + ' 页</div></div>' +
+        '<div class="page-preview" title="点击全屏预览"><div>第 ' + i + ' 页</div></div>' +
         '<div class="page-meta">' +
           '<span class="page-label">第 ' + i + ' 页</span>' +
           '<span class="page-dims"></span>' +
         '</div>' +
         '<button type="button" class="btn small export-one">导出此页</button>';
+
+      card.querySelector('.page-preview').addEventListener('click', () => openLightbox(i));
       card.querySelector('.export-one').addEventListener('click', () => exportOnePage(i));
       frag.appendChild(card);
     }
@@ -530,7 +661,6 @@ import { FontManager } from './src/fonts.js';
     setStatus('正在渲染 DOCX …');
 
     try {
-      await fontManager.ensureFontReady(activeFont);
       const buffer = await file.arrayBuffer();
       const container = els.docxRender;
       container.innerHTML = '';
@@ -546,19 +676,19 @@ import { FontManager } from './src/fonts.js';
         renderEndnotes: true
       });
 
-      fontManager.applyFontMappingToContainer(container, activeFont);
+      await fontManager.prepareDocxFonts(container);
 
       currentType = 'docx';
-      hasDocument = true;
       docxContainer = container;
       fileName = sanitizeName(file.name);
 
       els.pageList.innerHTML =
         '<div class="docx-notice">' +
-          'DOCX 已渲染为连续 HTML 内容（已应用字体映射：' + fontManager.resolveMappedFont(activeFont) + '）。<br>' +
+          'DOCX 已渲染为连续 HTML 内容（已自动映射与加载文档字体）。<br>' +
           '受浏览器分页限制，无法精确拆分为独立页面图片，请使用「导出拼接长图」获取完整文档。' +
         '</div>';
 
+      els.controls.hidden = false;
       els.exportAllBtn.hidden = true;
       els.exportLongBtn.hidden = false;
       updateQualityField();
@@ -573,8 +703,7 @@ import { FontManager } from './src/fonts.js';
 
   async function captureDocxLongImage() {
     if (!docxContainer) throw new Error('DOCX 内容未就绪');
-    await fontManager.ensureFontReady(activeFont);
-    fontManager.applyFontMappingToContainer(docxContainer, activeFont);
+    await fontManager.prepareDocxFonts(docxContainer);
 
     const scale = getScale();
     const originalLeft = docxContainer.style.left;
@@ -609,7 +738,6 @@ import { FontManager } from './src/fonts.js';
     setStatus('正在解析 PPTX …');
 
     try {
-      await fontManager.ensureFontReady(activeFont);
       const buffer = await file.arrayBuffer();
       const mod = await import(APP_CONFIG.pptxGlimpseEsm);
       const convertPptxToSvg = mod.convertPptxToSvg;
@@ -624,51 +752,31 @@ import { FontManager } from './src/fonts.js';
       }
 
       currentType = 'pptx';
-      hasDocument = true;
-      pptxSlides = result.slides.map((slide, idx) => {
-        const mappedSvg = applyFontMappingToSvg(slide.svg, activeFont);
-        const dims = extractSvgDimensions(mappedSvg);
-        return {
-          rawSvg: slide.svg,
-          svg: mappedSvg,
+      pptxSlides = [];
+      for (let idx = 0; idx < result.slides.length; idx++) {
+        const preparedSvg = await fontManager.preparePptxFonts(result.slides[idx].svg);
+        const dims = extractSvgDimensions(preparedSvg);
+        pptxSlides.push({
+          svg: preparedSvg,
           width: dims.width,
           height: dims.height,
           index: idx + 1
-        };
-      });
+        });
+      }
 
       fileName = sanitizeName(file.name);
       buildPptxPageList();
 
+      els.controls.hidden = false;
       els.exportAllBtn.hidden = false;
       els.exportLongBtn.hidden = false;
       updateQualityField();
-      setStatus('PPTX 已加载：共 ' + pptxSlides.length + ' 张幻灯片', 'ok');
+      setStatus('PPTX 已加载：共 ' + pptxSlides.length + ' 张幻灯片（点击缩略图可全屏预览）', 'ok');
     } catch (err) {
       console.error(err);
       setStatus('PPTX 解析失败：' + err.message, 'error');
     } finally {
       setBusy(false);
-    }
-  }
-
-  function applyFontMappingToSvg(svgStr, selectedFont) {
-    const stack = fontManager.buildCssFontStack(selectedFont);
-    try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(svgStr, 'image/svg+xml');
-      const svgEl = doc.documentElement;
-      svgEl.setAttribute('font-family', stack);
-
-      doc.querySelectorAll('[font-family]').forEach((node) => {
-        const ff = node.getAttribute('font-family');
-        const mapped = fontManager.resolveMappedFont(ff);
-        node.setAttribute('font-family', fontManager.buildCssFontStack(mapped));
-      });
-
-      return new XMLSerializer().serializeToString(doc);
-    } catch (_) {
-      return svgStr;
     }
   }
 
@@ -707,7 +815,9 @@ import { FontManager } from './src/fonts.js';
 
       const previewDiv = document.createElement('div');
       previewDiv.className = 'page-preview';
+      previewDiv.title = '点击全屏预览';
       previewDiv.innerHTML = slide.svg;
+      previewDiv.addEventListener('click', () => openLightbox(slide.index));
 
       const metaDiv = document.createElement('div');
       metaDiv.className = 'page-meta';
@@ -776,7 +886,7 @@ import { FontManager } from './src/fonts.js';
     if (busy) return;
     if (currentType === 'pptx') {
       const slide = pptxSlides[pageNum - 1];
-      if (slide) exportPptxSlide(slide);
+      if (slide) await exportPptxSlide(slide);
       return;
     }
     if (currentType !== 'pdf' || !pdfDoc) return;
@@ -784,7 +894,6 @@ import { FontManager } from './src/fonts.js';
     setBusy(true);
     setStatus('正在导出第 ' + pageNum + ' 页 …');
     try {
-      await fontManager.ensureFontReady(activeFont);
       const scale = getScale();
       const fmt = getFormat();
       const canvas = await renderPdfPageToCanvas(pageNum, scale);
@@ -804,7 +913,8 @@ import { FontManager } from './src/fonts.js';
     setBusy(true);
     setStatus('正在导出第 ' + slide.index + ' 张幻灯片 …');
     try {
-      await fontManager.ensureFontReady(activeFont);
+      const preparedSvg = await fontManager.preparePptxFonts(slide.svg);
+      slide.svg = preparedSvg;
       const scale = getScale();
       const fmt = getFormat();
       const canvas = await svgToCanvas(slide.svg, scale);
@@ -833,7 +943,6 @@ import { FontManager } from './src/fonts.js';
     if (currentType !== 'pdf' || !pdfDoc) return;
 
     setBusy(true);
-    await fontManager.ensureFontReady(activeFont);
     const scale = getScale();
     const fmt = getFormat();
     const total = pdfDoc.numPages;
@@ -877,7 +986,6 @@ import { FontManager } from './src/fonts.js';
   async function exportAllPptx() {
     if (!pptxSlides || !pptxSlides.length) return;
     setBusy(true);
-    await fontManager.ensureFontReady(activeFont);
     const scale = getScale();
     const fmt = getFormat();
     const total = pptxSlides.length;
@@ -938,7 +1046,6 @@ import { FontManager } from './src/fonts.js';
   async function exportPdfLong() {
     setBusy(true);
     try {
-      await fontManager.ensureFontReady(activeFont);
       let scale = getScale();
       let layout = await computePdfLongLayout(scale);
       const shrink = computeShrink(layout.width, layout.height);
@@ -1011,7 +1118,6 @@ import { FontManager } from './src/fonts.js';
     if (!pptxSlides || !pptxSlides.length) return;
     setBusy(true);
     try {
-      await fontManager.ensureFontReady(activeFont);
       let scale = getScale();
       const dims = pptxSlides.map((s) => ({
         w: Math.max(1, Math.round(s.width * scale)),
@@ -1099,31 +1205,6 @@ import { FontManager } from './src/fonts.js';
   }
 
   /* ======================== 事件 ======================== */
-  els.fontSelect.addEventListener('change', async () => {
-    activeFont = els.fontSelect.value;
-    document.body.style.fontFamily = fontManager.buildCssFontStack(activeFont);
-    setBusy(true);
-    setStatus('正在加载字体与映射配置 …');
-    try {
-      const mapped = await fontManager.ensureFontReady(activeFont);
-      if (currentType === 'docx' && docxContainer) {
-        fontManager.applyFontMappingToContainer(docxContainer, activeFont);
-      } else if (currentType === 'pptx' && pptxSlides) {
-        pptxSlides = pptxSlides.map((s) => {
-          const updatedSvg = applyFontMappingToSvg(s.rawSvg, activeFont);
-          return Object.assign({}, s, { svg: updatedSvg });
-        });
-        buildPptxPageList();
-      }
-      setStatus('已切换字体（统一映射为：' + mapped + '）', 'ok');
-    } catch (err) {
-      console.error(err);
-      setStatus('字体加载提示：' + err.message, 'warn');
-    } finally {
-      setBusy(false);
-    }
-  });
-
   els.dropZone.addEventListener('click', () => {
     if (!busy) els.fileInput.click();
   });
@@ -1167,8 +1248,35 @@ import { FontManager } from './src/fonts.js';
   els.exportAllBtn.addEventListener('click', exportAllPages);
   els.exportLongBtn.addEventListener('click', exportLongImage);
 
-  // 启动初始化：字体下拉框 + 本地字体 + 预加载前 3 个在线字体
-  initFontSelector();
+  // 全屏浮层事件
+  els.lightboxCloseBtn.addEventListener('click', closeLightbox);
+  els.lightbox.addEventListener('click', (e) => {
+    if (e.target === els.lightbox || e.target === els.lightboxBody) {
+      closeLightbox();
+    }
+  });
+  els.lightboxPrevBtn.addEventListener('click', () => stepLightbox(-1));
+  els.lightboxNextBtn.addEventListener('click', () => stepLightbox(1));
+  els.lightboxExportBtn.addEventListener('click', () => {
+    if (lightboxPageIndex !== null) {
+      exportOnePage(lightboxPageIndex);
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (els.lightbox.hidden) return;
+    if (e.key === 'Escape') {
+      closeLightbox();
+    } else if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      stepLightbox(-1);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      stepLightbox(1);
+    }
+  });
+
+  // 初始化：加载本地字体 + 预加载前 3 个在线字体
   updateQualityField();
   Promise.allSettled([
     fontManager.loadLocalFonts(),
