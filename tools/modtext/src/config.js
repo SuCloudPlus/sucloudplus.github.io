@@ -25,7 +25,7 @@ window.APP_CONFIG = {
         urls: [
             // "src/bg01.jpg"
             // 可继续按优先级添加无限多个备用源，例如：
-             "https://imgs.aixifan.com/newUpload/14666943_737c5870bd714a93b3722e134a23b231.jpg",
+             "https://imgs.aixifan.com/newUpload/14666943_08afc7aa4bb0479c8134489692052982.jpg",
             "https://i.postimg.cc/d0sF2rz8/bg01.png"
         ]
     },
