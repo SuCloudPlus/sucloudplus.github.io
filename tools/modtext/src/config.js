@@ -36,7 +36,7 @@ window.APP_CONFIG = {
             name: "默认背景",
             urls: [
                // "src/bg01.jpg"
-                "https://imgs.aixifan.com/newUpload/14666943_737c5870bd714a93b3722e134a23b231.jpg"
+                "https://imgs.aixifan.com/newUpload/14666943_08afc7aa4bb0479c8134489692052982.jpg"
             ]
         }
     ],
