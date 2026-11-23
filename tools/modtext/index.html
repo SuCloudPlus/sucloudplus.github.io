@@ -187,10 +187,6 @@ select, input[type="number"] {
     border-radius: 4px;
 }
 
-select#font-family option {
-    font-family: inherit;
-}
-
 .checkbox-group {
     display: flex;
     gap: 10px;
@@ -273,6 +269,7 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     cursor: pointer;
     border: 2px solid transparent;
     transition: 0.2s;
+    background: #e8eef5;
 }
 .image-thumb:hover { border-color: #5A9BE0; }
 .image-thumb.active { border-color: #2ECC71; }
@@ -516,6 +513,7 @@ const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
 const INITIAL_ONLINE_FONT_LIMIT = 3;       // 🌟 启动时最多预加载前 3 个本地不存在的在线字体
 const NETWORK_TIMEOUT_MS = Number(CONFIG.networkTimeout) > 0 ? Number(CONFIG.networkTimeout) : 5000;
+const BG_LOAD_CONCURRENCY = Math.max(1, Math.floor(Number(CONFIG.bgLoadConcurrency) || 2));
 
 /** 🌟 自动全角开关（默认开启） */
 let autoFullwidth = true;
@@ -555,8 +553,11 @@ const localFontCache = new Map();
 
 /** 背景图加载状态 */
 let bgLoadState = { status: 'idle', message: '' };
-let bgLoadTimer = null;
 let bgLoadSeq = 0;
+let activeBgController = null;
+let currentBgObjectUrl = null;
+/** 单张图片可用源缓存（源列表键 -> 已成功加载的最终可用 URL） */
+const resolvedBgSourceCache = new Map();
 
 /** 🌟 同字数多方案：记住每个预设 key 下选中的方案索引 */
 const variantSelections = new Map();
@@ -642,13 +643,30 @@ function withTimeout(promise, ms, timeoutMessage = 'TIMEOUT') {
     });
 }
 
-async function fetchWithTimeout(url, options = {}, ms = NETWORK_TIMEOUT_MS) {
+async function fetchWithTimeout(url, options = {}, ms = NETWORK_TIMEOUT_MS, parentSignal = null) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), ms);
+
+    const onParentAbort = () => controller.abort();
+    if (parentSignal) {
+        if (parentSignal.aborted) {
+            clearTimeout(timer);
+            const abortErr = new Error('ABORTED');
+            abortErr.code = 'ABORTED';
+            throw abortErr;
+        }
+        parentSignal.addEventListener('abort', onParentAbort, { once: true });
+    }
+
     try {
         const res = await fetch(url, { ...options, signal: controller.signal });
         return res;
     } catch (err) {
+        if (parentSignal && parentSignal.aborted) {
+            const abortErr = new Error('ABORTED');
+            abortErr.code = 'ABORTED';
+            throw abortErr;
+        }
         if (err && err.name === 'AbortError') {
             const timeoutErr = new Error('FETCH_TIMEOUT');
             timeoutErr.code = 'TIMEOUT';
@@ -657,11 +675,14 @@ async function fetchWithTimeout(url, options = {}, ms = NETWORK_TIMEOUT_MS) {
         throw err;
     } finally {
         clearTimeout(timer);
+        if (parentSignal) {
+            parentSignal.removeEventListener('abort', onParentAbort);
+        }
     }
 }
 
 /* =========================================================
- * 🌟 字体项归一化 & 本地字体检测
+ * 🌟 字体项归一化 & 本地字体检测 & 下拉样式同步
  * ========================================================= */
 function normalizeFontItem(item) {
     if (typeof item === 'string') {
@@ -715,6 +736,25 @@ function isLocalFontAvailable(fontName) {
 
     localFontCache.set(cleanName, detected);
     return detected;
+}
+
+/**
+ * 🌟 为每个下拉选项应用其真实字体（未加载完成时回退系统默认字体）
+ */
+function applyOptionFontStyle(opt, fontValue, status) {
+    const isReady = status === 'local' || status === 'loaded' || GENERIC_FONT_FAMILIES.has(fontValue.toLowerCase());
+    if (isReady && fontValue) {
+        opt.style.fontFamily = `"${fontValue}", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+    } else {
+        opt.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    }
+}
+
+function updateSelectFontStyle() {
+    if (!els.fontFamily) return;
+    const fontValue = els.fontFamily.value;
+    const status = fontStatus.get(fontValue);
+    applyOptionFontStyle(els.fontFamily, fontValue, status);
 }
 
 /* =========================================================
@@ -883,7 +923,7 @@ function applyParamsToUI(p) {
         const exists = Array.from(els.fontFamily.options).some(o => o.value === targetFontValue);
         if (exists) {
             els.fontFamily.value = targetFontValue;
-            updateFontStatusTip();
+            markFontOptions();
             ensureOnlineFontLoaded(targetFontValue, els.textInput.value).then(() => {
                 scheduleRender();
             });
@@ -1007,7 +1047,7 @@ function layoutLines(text, charsPerLine) {
 }
 
 /* =========================================================
- * 🌟 字体状态文案 & 异步加载（本地优先 + 超时 + 失败提示）
+ * 🌟 字体状态文案（精简提示） & 异步加载（本地优先 + 超时）
  * ========================================================= */
 function markFontOptions() {
     if (!els.fontFamily) return;
@@ -1017,17 +1057,20 @@ function markFontOptions() {
         const status = fontStatus.get(fontValue);
 
         if (status === 'local') {
-            opt.textContent = `${baseLabel}（使用本地字体）`;
+            opt.textContent = `${baseLabel}（本地）`;
         } else if (status === 'loading') {
-            opt.textContent = `${baseLabel}（加载中…）`;
+            opt.textContent = `${baseLabel}（加载中）`;
         } else if (status === 'timeout') {
-            opt.textContent = `${baseLabel}（加载超时）`;
+            opt.textContent = `${baseLabel}（超时）`;
         } else if (status === 'failed') {
-            opt.textContent = `${baseLabel}（加载失败）`;
+            opt.textContent = `${baseLabel}（失败）`;
         } else {
             opt.textContent = baseLabel;
         }
+
+        applyOptionFontStyle(opt, fontValue, status);
     });
+    updateSelectFontStyle();
     updateFontStatusTip();
 }
 
@@ -1041,19 +1084,19 @@ function updateFontStatusTip() {
 
     if (status === 'local') {
         tip.classList.add('ok');
-        tip.textContent = '✓ 已检测到本地字体，直接使用本地字体（无需联网下载）';
+        tip.textContent = '使用本地字体';
     } else if (status === 'loading') {
         tip.classList.add('loading');
-        tip.textContent = `⏳ 正在加载在线字体（超时上限 ${(NETWORK_TIMEOUT_MS / 1000).toFixed(1)} 秒）…`;
+        tip.textContent = '字体加载中…';
     } else if (status === 'timeout') {
         tip.classList.add('error');
-        tip.textContent = '⚠ 在线字体加载超时，已自动回退为系统默认字体';
+        tip.textContent = '加载超时，已用默认字体';
     } else if (status === 'failed') {
         tip.classList.add('error');
-        tip.textContent = '⚠ 在线字体加载失败，已自动回退为系统默认字体';
+        tip.textContent = '加载失败，已用默认字体';
     } else if (status === 'loaded') {
         tip.classList.add('ok');
-        tip.textContent = '✓ 在线字体加载完成';
+        tip.textContent = '在线字体已就绪';
     } else {
         tip.textContent = '';
     }
@@ -1421,8 +1464,43 @@ function scheduleRender() {
 }
 
 /* =========================================================
- * 🌟 背景图加载（增加超时控制 + 失败/超时提示）
+ * 🌟 多来源、可配置线程数（分批并发、按序加载）的背景图引擎
  * ========================================================= */
+
+/**
+ * 归一化背景图配置项：支持 string | string[] | { name, urls: string[], url?: string }
+ */
+function normalizeBgItem(item) {
+    if (!item) return { name: '', urls: [] };
+    if (typeof item === 'string') {
+        const u = item.trim();
+        return { name: u, urls: u ? [u] : [] };
+    }
+    if (Array.isArray(item)) {
+        const urls = item.map(u => String(u || '').trim()).filter(Boolean);
+        return { name: urls[0] || '', urls };
+    }
+    if (typeof item === 'object') {
+        let urls = [];
+        if (Array.isArray(item.urls)) {
+            urls = item.urls.map(u => String(u || '').trim()).filter(Boolean);
+        } else if (Array.isArray(item.sources)) {
+            urls = item.sources.map(u => String(u || '').trim()).filter(Boolean);
+        } else if (item.url) {
+            urls = [String(item.url).trim()].filter(Boolean);
+        }
+        return {
+            name: String(item.name || item.label || urls[0] || '').trim(),
+            urls
+        };
+    }
+    return { name: '', urls: [] };
+}
+
+function getBgCacheKey(urls) {
+    return urls.join('||');
+}
+
 function updateBgStatusTip(status, text) {
     bgLoadState = { status, message: text || '' };
     const tip = els.bgStatusTip;
@@ -1440,44 +1518,233 @@ function updateBgStatusTip(status, text) {
     tip.textContent = text;
 }
 
-function setBackground(url) {
-    const seq = ++bgLoadSeq;
-    if (bgLoadTimer) {
-        clearTimeout(bgLoadTimer);
-        bgLoadTimer = null;
+/**
+ * 加载单个图片 URL（支持 abort 中止剩余同批请求，成功返回 { loadUrl, revokeUrl }）
+ */
+async function fetchSingleImageSource(url, parentSignal) {
+    if (url.startsWith('data:') || url.startsWith('blob:')) {
+        return { loadUrl: url, revokeUrl: null };
     }
 
-    if (!url) {
-        updateBgStatusTip('idle', '');
+    const res = await fetchWithTimeout(
+        url,
+        { method: 'GET', mode: 'cors' },
+        NETWORK_TIMEOUT_MS,
+        parentSignal
+    );
+
+    if (!res.ok) {
+        const err = new Error('HTTP ' + res.status);
+        err.code = 'HTTP_ERROR';
+        throw err;
+    }
+
+    const blob = await withTimeout(res.blob(), NETWORK_TIMEOUT_MS, 'BLOB_TIMEOUT');
+    if (parentSignal && parentSignal.aborted) {
+        const abortErr = new Error('ABORTED');
+        abortErr.code = 'ABORTED';
+        throw abortErr;
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    return { loadUrl: objectUrl, revokeUrl: objectUrl };
+}
+
+/**
+ * 兜底：若目标站点未开启 CORS 导致 fetch 失败，尝试直接用 <img> 探测加载
+ */
+function probeImageViaElement(url, parentSignal) {
+    return new Promise((resolve, reject) => {
+        if (parentSignal && parentSignal.aborted) {
+            const abortErr = new Error('ABORTED');
+            abortErr.code = 'ABORTED';
+            reject(abortErr);
+            return;
+        }
+
+        const tester = new Image();
+        let finished = false;
+
+        const cleanup = () => {
+            clearTimeout(timer);
+            tester.onload = null;
+            tester.onerror = null;
+            if (parentSignal) {
+                parentSignal.removeEventListener('abort', onAbort);
+            }
+        };
+
+        const onAbort = () => {
+            if (finished) return;
+            finished = true;
+            tester.src = '';
+            cleanup();
+            const abortErr = new Error('ABORTED');
+            abortErr.code = 'ABORTED';
+            reject(abortErr);
+        };
+
+        const timer = setTimeout(() => {
+            if (finished) return;
+            finished = true;
+            tester.src = '';
+            cleanup();
+            const timeoutErr = new Error('IMG_TIMEOUT');
+            timeoutErr.code = 'TIMEOUT';
+            reject(timeoutErr);
+        }, NETWORK_TIMEOUT_MS);
+
+        if (parentSignal) {
+            parentSignal.addEventListener('abort', onAbort, { once: true });
+        }
+
+        tester.onload = () => {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            resolve({ loadUrl: url, revokeUrl: null });
+        };
+
+        tester.onerror = () => {
+            if (finished) return;
+            finished = true;
+            cleanup();
+            const err = new Error('IMG_ERROR');
+            err.code = 'IMG_ERROR';
+            reject(err);
+        };
+
+        tester.src = url;
+    });
+}
+
+/**
+ * 加载单个来源（优先 fetch 可真实取消，CORS 受限时无缝回退到 Image 标签）
+ */
+async function loadOneCandidateSource(url, parentSignal) {
+    try {
+        return await fetchSingleImageSource(url, parentSignal);
+    } catch (err) {
+        if (err && (err.code === 'ABORTED' || err.code === 'TIMEOUT')) {
+            throw err;
+        }
+        // 非超时、非取消（如跨域 CORS 限制或 file:// 协议），回退到 <img> 探测
+        return await probeImageViaElement(url, parentSignal);
+    }
+}
+
+/**
+ * 按批次（每批 concurrency 个线程）并发竞速多个来源：
+ *   - 批内任一来源成功：立即 abort 本批其余线程，不再请求后续批次，直接返回成功结果
+ *   - 批内全部失败/超时：继续下一批（如 1-2 失败则继续 3-4）
+ */
+async function raceBgSourcesInBatches(urls, concurrency, outerSignal, onBatchProgress) {
+    const cleanUrls = urls.map(u => String(u || '').trim()).filter(Boolean);
+    const total = cleanUrls.length;
+    if (total === 0) {
+        const err = new Error('EMPTY_URLS');
+        err.code = 'FAILED';
+        throw err;
+    }
+
+    let hadTimeout = false;
+
+    for (let start = 0; start < total; start += concurrency) {
+        if (outerSignal && outerSignal.aborted) {
+            const abortErr = new Error('ABORTED');
+            abortErr.code = 'ABORTED';
+            throw abortErr;
+        }
+
+        const end = Math.min(start + concurrency, total);
+        const batch = cleanUrls.slice(start, end);
+
+        if (typeof onBatchProgress === 'function') {
+            onBatchProgress(start + 1, end, total);
+        }
+
+        const batchController = new AbortController();
+        const onOuterAbort = () => batchController.abort();
+        if (outerSignal) {
+            outerSignal.addEventListener('abort', onOuterAbort, { once: true });
+        }
+
+        try {
+            const winner = await new Promise((resolve, reject) => {
+                let pending = batch.length;
+                let settled = false;
+
+                batch.forEach((url, idxInBatch) => {
+                    loadOneCandidateSource(url, batchController.signal)
+                        .then(result => {
+                            if (settled) {
+                                if (result && result.revokeUrl) {
+                                    URL.revokeObjectURL(result.revokeUrl);
+                                }
+                                return;
+                            }
+                            settled = true;
+                            // 立即停止同批其他线程
+                            batchController.abort();
+                            resolve({
+                                ...result,
+                                sourceUrl: url,
+                                sourceIndex: start + idxInBatch + 1
+                            });
+                        })
+                        .catch(err => {
+                            if (settled) return;
+                            if (err && err.code === 'TIMEOUT') {
+                                hadTimeout = true;
+                            }
+                            pending -= 1;
+                            if (pending <= 0) {
+                                settled = true;
+                                reject(new Error('BATCH_FAILED'));
+                            }
+                        });
+                });
+            });
+
+            return winner;
+        } catch (batchErr) {
+            if (outerSignal && outerSignal.aborted) {
+                const abortErr = new Error('ABORTED');
+                abortErr.code = 'ABORTED';
+                throw abortErr;
+            }
+            // 当前批次全部失败或超时，循环自动推进到下一批（如 3、4 来源）
+        } finally {
+            if (outerSignal) {
+                outerSignal.removeEventListener('abort', onOuterAbort);
+            }
+        }
+    }
+
+    const finalErr = new Error(hadTimeout ? 'ALL_TIMEOUT' : 'ALL_FAILED');
+    finalErr.code = hadTimeout ? 'TIMEOUT' : 'FAILED';
+    throw finalErr;
+}
+
+/**
+ * 将已就绪的图片地址渲染到隐藏的 #bg-img 并刷新画布
+ */
+function applyLoadedBgImage(loadUrl, revokeUrl, seq, statusText) {
+    if (seq !== bgLoadSeq) {
+        if (revokeUrl) URL.revokeObjectURL(revokeUrl);
         return;
     }
 
-    const isDataUrl = url.startsWith('data:');
-    if (!isDataUrl) {
-        updateBgStatusTip('loading', `⏳ 正在加载背景图（超时上限 ${(NETWORK_TIMEOUT_MS / 1000).toFixed(1)} 秒）…`);
-    } else {
-        updateBgStatusTip('loading', '⏳ 正在读取本地背景图…');
-    }
-
-    bgLoadTimer = setTimeout(() => {
-        if (seq !== bgLoadSeq) return;
-        console.warn('背景图加载超时:', url);
-        els.bgImg.onload = null;
-        els.bgImg.onerror = null;
-        els.bgImg.removeAttribute('src');
-
-        updateBgStatusTip('timeout', '⚠ 背景图加载超时，已使用默认底色（可点击缩略图重试或上传本地图片）');
-        updateCanvasSize();
-        fitStage();
-        render();
-    }, NETWORK_TIMEOUT_MS);
-
     els.bgImg.onload = () => {
-        if (seq !== bgLoadSeq) return;
-        if (bgLoadTimer) {
-            clearTimeout(bgLoadTimer);
-            bgLoadTimer = null;
+        if (seq !== bgLoadSeq) {
+            if (revokeUrl) URL.revokeObjectURL(revokeUrl);
+            return;
         }
+
+        if (currentBgObjectUrl && currentBgObjectUrl !== revokeUrl) {
+            URL.revokeObjectURL(currentBgObjectUrl);
+        }
+        currentBgObjectUrl = revokeUrl || null;
 
         const natW = els.bgImg.naturalWidth;
         const natH = els.bgImg.naturalHeight;
@@ -1486,30 +1753,133 @@ function setBackground(url) {
         logicalW = CONFIG.logicalWidth || 1067;
         logicalH = Math.max(1, Math.round(logicalW * (natH / natW)));
 
-        updateBgStatusTip('loaded', isDataUrl ? '✓ 本地背景图已应用' : '');
+        updateBgStatusTip('loaded', statusText || '');
         updateCanvasSize();
         fitStage();
         render();
     };
 
     els.bgImg.onerror = () => {
+        if (revokeUrl) URL.revokeObjectURL(revokeUrl);
         if (seq !== bgLoadSeq) return;
-        if (bgLoadTimer) {
-            clearTimeout(bgLoadTimer);
-            bgLoadTimer = null;
-        }
-
-        console.warn('背景图加载失败:', url);
         els.bgImg.removeAttribute('src');
-        els.overflowTip.style.display = 'none';
-
-        updateBgStatusTip('error', '⚠ 背景图加载失败，已使用默认底色');
+        updateBgStatusTip('error', '背景加载失败，已用默认底色');
         updateCanvasSize();
         fitStage();
         render();
     };
 
-    els.bgImg.src = url;
+    els.bgImg.src = loadUrl;
+}
+
+/**
+ * 设置背景图（支持单源字符串、多源数组、多源对象）
+ */
+async function setBackground(sourceInput) {
+    const seq = ++bgLoadSeq;
+    if (activeBgController) {
+        activeBgController.abort();
+        activeBgController = null;
+    }
+
+    const normalized = normalizeBgItem(sourceInput);
+    const urls = normalized.urls;
+
+    if (urls.length === 0) {
+        updateBgStatusTip('idle', '');
+        return;
+    }
+
+    // 本地 DataURL 直接加载
+    if (urls.length === 1 && urls[0].startsWith('data:')) {
+        updateBgStatusTip('loading', '背景读取中…');
+        applyLoadedBgImage(urls[0], null, seq, '本地背景已应用');
+        return;
+    }
+
+    // 若该多源组合已命中过可用来源，优先直接尝试该可用来源，失败再走完整多源队列
+    const cacheKey = getBgCacheKey(urls);
+    const cachedUrl = resolvedBgSourceCache.get(cacheKey);
+    const orderedUrls = cachedUrl
+        ? [cachedUrl, ...urls.filter(u => u !== cachedUrl)]
+        : urls;
+
+    const controller = new AbortController();
+    activeBgController = controller;
+
+    try {
+        const winner = await raceBgSourcesInBatches(
+            orderedUrls,
+            BG_LOAD_CONCURRENCY,
+            controller.signal,
+            (fromIdx, toIdx, total) => {
+                if (seq !== bgLoadSeq) return;
+                if (total === 1) {
+                    updateBgStatusTip('loading', '背景加载中…');
+                } else if (fromIdx === toIdx) {
+                    updateBgStatusTip('loading', `背景加载中（源 ${fromIdx}/${total}）…`);
+                } else {
+                    updateBgStatusTip('loading', `背景加载中（源 ${fromIdx}-${toIdx}/${total}）…`);
+                }
+            }
+        );
+
+        if (seq !== bgLoadSeq) {
+            if (winner.revokeUrl) URL.revokeObjectURL(winner.revokeUrl);
+            return;
+        }
+
+        resolvedBgSourceCache.set(cacheKey, winner.sourceUrl);
+        const origIndex = urls.indexOf(winner.sourceUrl) + 1;
+        const okTip = urls.length > 1 ? `背景已加载（源 ${origIndex}/${urls.length}）` : '';
+        applyLoadedBgImage(winner.loadUrl, winner.revokeUrl, seq, okTip);
+    } catch (err) {
+        if (seq !== bgLoadSeq || (err && err.code === 'ABORTED')) return;
+
+        els.bgImg.onload = null;
+        els.bgImg.onerror = null;
+        els.bgImg.removeAttribute('src');
+        els.overflowTip.style.display = 'none';
+
+        if (err && err.code === 'TIMEOUT') {
+            updateBgStatusTip('timeout', '加载超时，已用默认底色');
+        } else {
+            updateBgStatusTip('error', '加载失败，已用默认底色');
+        }
+        updateCanvasSize();
+        fitStage();
+        render();
+    } finally {
+        if (activeBgController === controller) {
+            activeBgController = null;
+        }
+    }
+}
+
+/**
+ * 缩略图同样按多来源、可配置线程数加载，命中即停
+ */
+async function loadThumbnailImage(imgEl, bgItem) {
+    const urls = bgItem.urls;
+    if (!urls || urls.length === 0) return;
+
+    const cacheKey = getBgCacheKey(urls);
+    const cachedUrl = resolvedBgSourceCache.get(cacheKey);
+    const orderedUrls = cachedUrl
+        ? [cachedUrl, ...urls.filter(u => u !== cachedUrl)]
+        : urls;
+
+    try {
+        const winner = await raceBgSourcesInBatches(orderedUrls, BG_LOAD_CONCURRENCY, null, null);
+        resolvedBgSourceCache.set(cacheKey, winner.sourceUrl);
+        imgEl.onload = () => {
+            if (winner.revokeUrl) URL.revokeObjectURL(winner.revokeUrl);
+        };
+        imgEl.src = winner.loadUrl;
+    } catch (err) {
+        imgEl.title = bgItem.name ? `${bgItem.name}（加载失败）` : '预设背景图加载失败';
+        imgEl.style.opacity = '0.35';
+    }
 }
 
 /* =========================================================
@@ -1645,7 +2015,7 @@ function bindEvents() {
     /* ---------- 🌟 字体下拉框切换：本地优先，否则按需带超时加载 ---------- */
     els.fontFamily.addEventListener('change', async () => {
         const selectedFont = els.fontFamily.value;
-        updateFontStatusTip();
+        markFontOptions();
         scheduleRender();
         await ensureOnlineFontLoaded(selectedFont, els.textInput.value);
         scheduleRender();
@@ -1692,7 +2062,7 @@ function bindEvents() {
         if (!file) return;
         const reader = new FileReader();
         reader.onerror = () => {
-            updateBgStatusTip('error', '⚠ 本地背景图片读取失败，请重新选择');
+            updateBgStatusTip('error', '读取失败，请重新选择');
         };
         reader.onload = (ev) => {
             setBackground(ev.target.result);
@@ -1717,7 +2087,7 @@ function bindEvents() {
 async function initApp() {
     document.body.className = `layout-${CONFIG.panelPosition || 'right'}`;
 
-    // 1. 先检测本地字体并填充下拉框（本地已有的直接标注“使用本地字体”）
+    // 1. 先检测本地字体并填充下拉框（本地已有的直接标注“本地”，并为选项应用对应字体）
     const defaultFontValue = normalizeFontItem(CONFIG.defaultFont).value;
     getNormalizedFonts().forEach(fontItem => {
         const opt = document.createElement('option');
@@ -1725,13 +2095,16 @@ async function initApp() {
         opt.dataset.label = fontItem.label;
         if (isLocalFontAvailable(fontItem.value)) {
             fontStatus.set(fontItem.value, 'local');
-            opt.textContent = `${fontItem.label}（使用本地字体）`;
+            opt.textContent = `${fontItem.label}（本地）`;
+            applyOptionFontStyle(opt, fontItem.value, 'local');
         } else {
             opt.textContent = fontItem.label;
+            applyOptionFontStyle(opt, fontItem.value, 'pending');
         }
         if (fontItem.value === defaultFontValue) opt.selected = true;
         els.fontFamily.appendChild(opt);
     });
+    updateSelectFontStyle();
     updateFontStatusTip();
 
     // 2. 字号快捷按钮
@@ -1754,38 +2127,43 @@ async function initApp() {
     fitStage();
     render();
 
-    // 7. 预设背景缩略图
-    let defaultBg = CONFIG.bgImageUrl;
-    const folder = CONFIG.bgImageFolder || [];
+    // 7. 预设背景缩略图（支持多源对象/数组/字符串）
+    let defaultBgItem = normalizeBgItem(CONFIG.bgImageUrl);
+    const folder = (CONFIG.bgImageFolder || [])
+        .map(normalizeBgItem)
+        .filter(item => item.urls.length > 0);
+
     if (folder.length > 0) {
         els.bgListBox.style.display = 'block';
-        if (!defaultBg) defaultBg = folder[0];
+        if (defaultBgItem.urls.length === 0) defaultBgItem = folder[0];
 
-        folder.forEach(url => {
+        const defaultCacheKey = getBgCacheKey(defaultBgItem.urls);
+
+        folder.forEach(bgItem => {
             const img = document.createElement('img');
-            img.src = url;
             img.className = 'image-thumb';
-            img.alt = '';
-            if (url === defaultBg) img.classList.add('active');
-
-            img.onerror = () => {
-                img.title = '预设背景图加载失败';
-                img.style.opacity = '0.35';
-            };
+            img.alt = bgItem.name || '';
+            if (bgItem.name) img.title = bgItem.name;
+            if (getBgCacheKey(bgItem.urls) === defaultCacheKey) {
+                img.classList.add('active');
+            }
 
             img.onclick = () => {
                 document.querySelectorAll('.image-thumb')
                     .forEach(el => el.classList.remove('active'));
                 img.classList.add('active');
-                setBackground(url);
+                setBackground(bgItem);
             };
 
             els.imageList.appendChild(img);
+            loadThumbnailImage(img, bgItem);
         });
     }
 
-    // 8. 背景图（带超时与失败提示）
-    if (defaultBg) setBackground(defaultBg);
+    // 8. 默认背景图（多源分批并发、按序加载直到成功）
+    if (defaultBgItem.urls.length > 0) {
+        setBackground(defaultBgItem);
+    }
 
     // 9. 在线字体（跳过本地已有字体，仅预加载前 3 个缺失的在线字体）
     loadInitialOnlineFonts().then(() => {
