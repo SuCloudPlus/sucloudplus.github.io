@@ -23,11 +23,11 @@ window.APP_CONFIG = {
     bgImageUrl: {
         name: "默认背景",
         urls: [
-            // "src/bg01.jpg"
             // 可继续按优先级添加无限多个备用源，例如：
-            "https://i.postimg.cc/d0sF2rz8/bg01.png",
-             "https://imgs.aixifan.com/newUpload/14666943_08afc7aa4bb0479c8134489692052982.jpg",
-            
+            "https://imgs.aixifan.com/newUpload/14666943_08afc7aa4bb0479c8134489692052982.jpg",
+            "src/bg01.jpg",
+            "https://i.postimg.cc/KzQbzNQP/bg01.jpg", // 降分辨率，长边1280px
+            // https://imgs.aixifan.com/newUpload/14666943_737c5870bd714a93b3722e134a23b231.jpg 看看删掉原始来源，图片会不会删
         ]
     },
 
@@ -37,7 +37,7 @@ window.APP_CONFIG = {
             name: "默认背景",
             urls: [
                // "src/bg01.jpg"
-                "https://i.postimg.cc/d0sF2rz8/bg01.png",
+               "https://imgs.aixifan.com/newUpload/14666943_08afc7aa4bb0479c8134489692052982.jpg",
             ]
         }
     ],
