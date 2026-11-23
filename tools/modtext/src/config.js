@@ -23,10 +23,10 @@ window.APP_CONFIG = {
     bgImageUrl: {
         name: "默认背景",
         urls: [
-            "src/bg01.jpg"
+            // "src/bg01.jpg"
             // 可继续按优先级添加无限多个备用源，例如：
-            // "https://imgs.aixifan.com/newUpload/14666943_737c5870bd714a93b3722e134a23b231.jpg",
-            // "https://i.postimg.cc/d0sF2rz8/bg01.png"
+             "https://imgs.aixifan.com/newUpload/14666943_737c5870bd714a93b3722e134a23b231.jpg",
+            "https://i.postimg.cc/d0sF2rz8/bg01.png"
         ]
     },
 
@@ -35,7 +35,8 @@ window.APP_CONFIG = {
         {
             name: "默认背景",
             urls: [
-                "src/bg01.jpg"
+               // "src/bg01.jpg"
+                "https://imgs.aixifan.com/newUpload/14666943_737c5870bd714a93b3722e134a23b231.jpg"
             ]
         }
     ],
