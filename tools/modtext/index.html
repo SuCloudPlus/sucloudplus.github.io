@@ -126,7 +126,8 @@ body.layout-bottom .panel-section { flex: 1; min-width: 250px; }
 }
 
 .form-group { display: flex; flex-direction: column; gap: 4px; }
-.form-group label {
+.form-group label,
+.form-group .field-label {
     font-size: 12px;
     font-weight: bold;
     color: #555;
@@ -241,15 +242,20 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 .image-thumb:hover { border-color: #5A9BE0; }
 .image-thumb.active { border-color: #2ECC71; }
 
-/* 字数配置命中提示 */
-.preset-info {
+/* 状态/命中提示 */
+.preset-info,
+.status-tip {
     font-size: 11px;
     color: #8a94a0;
     line-height: 1.5;
     padding: 1px 2px 0;
     min-height: 16px;
 }
-.preset-info.hit { color: #2ECC71; font-weight: bold; }
+.preset-info.hit,
+.status-tip.ok { color: #27AE60; font-weight: bold; }
+.status-tip.loading { color: #5A9BE0; }
+.status-tip.error { color: #E74C3C; font-weight: bold; }
+.status-tip:empty { display: none; }
 
 /* ============================================================
  * 🌟 模式切换 + 同字数多方案切换（同一行，高度固定，避免跳动）
@@ -342,7 +348,7 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     <div class="panel-section">
         <h3>1. 内容与背景</h3>
         <div class="form-group">
-            <label>输入文字 <button id="convert-width" class="small" type="button">转全角</button></label>
+            <label for="text-input">输入文字 <button id="convert-width" class="small" type="button">转全角</button></label>
             <textarea id="text-input">乘风破浪</textarea>
             <div class="preset-info" id="preset-info"></div>
             <!-- 🌟 模式切换 + 字数方案切换（同一行，固定高度） -->
@@ -355,11 +361,12 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
             </div>
         </div>
         <div class="form-group">
-            <label>自定义上传背景</label>
+            <label for="bg-upload">自定义上传背景</label>
             <input type="file" id="bg-upload" accept="image/*" style="font-size:12px;">
+            <div class="status-tip" id="bg-status-tip"></div>
         </div>
         <div id="bg-list-container" style="display:none;">
-            <label>预设背景图片</label>
+            <div class="field-label">预设背景图片</div>
             <div class="image-list" id="image-list"></div>
         </div>
     </div>
@@ -367,22 +374,23 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     <div class="panel-section">
         <h3>2. 字体与样式</h3>
         <div class="form-group">
-            <label>字体</label>
+            <label for="font-family">字体</label>
             <select id="font-family"></select>
+            <div class="status-tip" id="font-status-tip"></div>
         </div>
         <div class="checkbox-group">
-            <label><input type="checkbox" id="style-grid"> 田字格</label>
-            <label><input type="checkbox" id="style-italic"> 斜体</label>
-            <label><input type="checkbox" id="style-bold"> 加粗</label>
-            <label><input type="checkbox" id="style-strike"> 删除线</label>
+            <label for="style-grid"><input type="checkbox" id="style-grid"> 田字格</label>
+            <label for="style-italic"><input type="checkbox" id="style-italic"> 斜体</label>
+            <label for="style-bold"><input type="checkbox" id="style-bold"> 加粗</label>
+            <label for="style-strike"><input type="checkbox" id="style-strike"> 删除线</label>
         </div>
         <div style="display:flex; gap:10px;">
             <div class="form-group" style="flex:1;">
-                <label>文字颜色</label>
+                <label for="text-color">文字颜色</label>
                 <input type="color" id="text-color">
             </div>
             <div class="form-group" style="flex:1;">
-                <label>线条颜色</label>
+                <label for="line-color">线条颜色</label>
                 <input type="color" id="line-color">
             </div>
         </div>
@@ -392,47 +400,47 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
         <h3>3. 参数调节</h3>
 
         <div class="form-group">
-            <label>字号快速选择</label>
+            <div class="field-label">字号快速选择</div>
             <div class="font-size-presets" id="font-size-presets"></div>
         </div>
 
         <div class="form-group">
-            <label>字号大小: <span id="font-size-val">110</span> px</label>
+            <label for="font-size">字号大小: <span id="font-size-val">110</span> px</label>
             <input type="range" id="font-size" min="16" max="250">
         </div>
         <div class="form-group">
-            <label>文字大小比例 (占格子): <span id="text-ratio-val">0.80</span></label>
+            <label for="text-ratio">文字大小比例 (占格子): <span id="text-ratio-val">0.80</span></label>
             <input type="range" id="text-ratio" min="0.4" max="1.0" step="0.01">
         </div>
         <div class="form-group">
-            <label>文字垂直微调 (格内): <span id="text-y-offset-val">5</span> px</label>
+            <label for="text-y-offset">文字垂直微调 (格内): <span id="text-y-offset-val">5</span> px</label>
             <input type="range" id="text-y-offset" min="-30" max="30">
         </div>
         <div class="form-group">
-            <label>整体上下偏移 (画布内): <span id="block-offset-y-val">0</span> px</label>
+            <label for="block-offset-y">整体上下偏移 (画布内): <span id="block-offset-y-val">0</span> px</label>
             <input type="range" id="block-offset-y" min="-300" max="300">
         </div>
         <div style="display:flex; gap:10px;">
             <div class="form-group" style="flex:1;">
-                <label>列间距: <span id="col-gap-val">-2</span></label>
+                <label for="col-gap">列间距: <span id="col-gap-val">-2</span></label>
                 <input type="range" id="col-gap" min="-20.0" max="20.0" step="0.1">
             </div>
             <div class="form-group" style="flex:1;">
-                <label>行间距: <span id="line-gap-val">-2</span></label>
+                <label for="line-gap">行间距: <span id="line-gap-val">-2</span></label>
                 <input type="range" id="line-gap" min="-20.0" max="20.0" step="0.1">
             </div>
         </div>
         <div style="display:flex; gap:10px;">
             <div class="form-group" style="flex:1;">
-                <label>外框线宽: <span id="border-width-val">2</span></label>
+                <label for="border-width">外框线宽: <span id="border-width-val">2</span></label>
                 <input type="range" id="border-width" min="0" max="10" step="0.5">
             </div>
             <div class="form-group" style="flex:1;">
-                <label>内虚线宽: <span id="dash-width-val">1</span></label>
+                <label for="dash-width">内虚线宽: <span id="dash-width-val">1</span></label>
                 <input type="range" id="dash-width" min="0" max="5" step="0.5">
             </div>
             <div class="form-group" style="flex:1;">
-                <label>虚线密度: <span id="dash-density-val">2</span></label>
+                <label for="dash-density">虚线密度: <span id="dash-density-val">2</span></label>
                 <input type="range" id="dash-density" min="1" max="15">
             </div>
         </div>
@@ -441,7 +449,7 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
     <div class="panel-section">
         <h3>4. 导出设置</h3>
         <div class="form-group">
-            <label>清晰度倍率:</label>
+            <label for="resolution">清晰度倍率:</label>
             <input type="number" id="resolution" step="0.5" min="1" max="5">
         </div>
         <button id="export-btn" class="primary">📥 导出高清图片</button>
@@ -465,7 +473,8 @@ const GRID_PRESETS = (CONFIG.gridConfig && CONFIG.gridConfig.lengthPresets) || {
 const PREVIEW_DPR    = Math.min(2, window.devicePixelRatio || 1);
 const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
-const INITIAL_ONLINE_FONT_LIMIT = 3;       // 🌟 启动时最多预加载前 3 个在线字体
+const INITIAL_ONLINE_FONT_LIMIT = 3;       // 🌟 启动时最多预加载前 3 个非本地的在线字体
+const NETWORK_TIMEOUT_MS = Number(CONFIG.networkTimeout) > 0 ? Number(CONFIG.networkTimeout) : 5000;
 
 /** 🌟 自动全角开关（默认开启） */
 let autoFullwidth = true;
@@ -493,10 +502,20 @@ let logicalH = Math.round((CONFIG.logicalWidth || 1067) * 9 / 16);
 let previewCtx = null;
 let rafPending = false;
 
-/** 字体加载结果：真实 font-family (value) -> true(成功) / false(失败) */
+/**
+ * 字体状态记录：真实 font-family (value) ->
+ * 'local' | 'loading' | 'loaded' | 'timeout' | 'failed'
+ */
 const fontStatus = new Map();
-/** 字体 CSS 拉取 Promise 缓存，防止重复下载 */
+/** 字体加载 Promise 缓存，防止重复请求 */
 const fontLoadPromises = new Map();
+/** 本地字体检测结果缓存 */
+const localFontCache = new Map();
+
+/** 背景图加载状态 */
+let bgLoadState = { status: 'idle', message: '' };
+let bgLoadTimer = null;
+let bgLoadSeq = 0;
 
 /** 🌟 同字数多方案：记住每个预设 key 下选中的方案索引 */
 const variantSelections = new Map();
@@ -513,41 +532,43 @@ let lastAppliedKey = undefined;
  * DOM 缓存
  * ========================================================= */
 const els = {
-    previewArea : document.getElementById('preview-area'),
-    stage       : document.getElementById('stage'),
-    container   : document.getElementById('capture-container'),
-    canvas      : document.getElementById('preview-canvas'),
-    bgImg       : document.getElementById('bg-img'),
-    overflowTip : document.getElementById('overflow-tip'),
+    previewArea  : document.getElementById('preview-area'),
+    stage        : document.getElementById('stage'),
+    container    : document.getElementById('capture-container'),
+    canvas       : document.getElementById('preview-canvas'),
+    bgImg        : document.getElementById('bg-img'),
+    overflowTip  : document.getElementById('overflow-tip'),
 
-    textInput   : document.getElementById('text-input'),
-    presetInfo  : document.getElementById('preset-info'),
-    presetBar   : document.getElementById('preset-bar'),
-    modeSwitch  : document.getElementById('mode-switch'),
-    variantBar  : document.getElementById('variant-bar'),
-    convertBtn  : document.getElementById('convert-width'),
-    bgUpload    : document.getElementById('bg-upload'),
-    bgListBox   : document.getElementById('bg-list-container'),
-    imageList   : document.getElementById('image-list'),
+    textInput    : document.getElementById('text-input'),
+    presetInfo   : document.getElementById('preset-info'),
+    presetBar    : document.getElementById('preset-bar'),
+    modeSwitch   : document.getElementById('mode-switch'),
+    variantBar   : document.getElementById('variant-bar'),
+    convertBtn   : document.getElementById('convert-width'),
+    bgUpload     : document.getElementById('bg-upload'),
+    bgStatusTip  : document.getElementById('bg-status-tip'),
+    bgListBox    : document.getElementById('bg-list-container'),
+    imageList    : document.getElementById('image-list'),
 
-    fontFamily  : document.getElementById('font-family'),
-    styleGrid   : document.getElementById('style-grid'),
-    styleItalic : document.getElementById('style-italic'),
-    styleBold   : document.getElementById('style-bold'),
-    styleStrike : document.getElementById('style-strike'),
-    textColor   : document.getElementById('text-color'),
-    lineColor   : document.getElementById('line-color'),
+    fontFamily   : document.getElementById('font-family'),
+    fontStatusTip: document.getElementById('font-status-tip'),
+    styleGrid    : document.getElementById('style-grid'),
+    styleItalic  : document.getElementById('style-italic'),
+    styleBold    : document.getElementById('style-bold'),
+    styleStrike  : document.getElementById('style-strike'),
+    textColor    : document.getElementById('text-color'),
+    lineColor    : document.getElementById('line-color'),
 
-    presetsBox  : document.getElementById('font-size-presets'),
-    fontSize    : document.getElementById('font-size'),
-    textRatio   : document.getElementById('text-ratio'),
-    colGap      : document.getElementById('col-gap'),
-    lineGap     : document.getElementById('line-gap'),
-    textYOffset : document.getElementById('text-y-offset'),
-    blockOffsetY: document.getElementById('block-offset-y'),
-    borderWidth : document.getElementById('border-width'),
-    dashWidth   : document.getElementById('dash-width'),
-    dashDensity : document.getElementById('dash-density'),
+    presetsBox   : document.getElementById('font-size-presets'),
+    fontSize     : document.getElementById('font-size'),
+    textRatio    : document.getElementById('text-ratio'),
+    colGap       : document.getElementById('col-gap'),
+    lineGap      : document.getElementById('line-gap'),
+    textYOffset  : document.getElementById('text-y-offset'),
+    blockOffsetY : document.getElementById('block-offset-y'),
+    borderWidth  : document.getElementById('border-width'),
+    dashWidth    : document.getElementById('dash-width'),
+    dashDensity  : document.getElementById('dash-density'),
 
     fontSizeVal    : document.getElementById('font-size-val'),
     textRatioVal   : document.getElementById('text-ratio-val'),
@@ -559,12 +580,47 @@ const els = {
     dashWidthVal   : document.getElementById('dash-width-val'),
     dashDensityVal : document.getElementById('dash-density-val'),
 
-    resolution  : document.getElementById('resolution'),
-    exportBtn   : document.getElementById('export-btn')
+    resolution   : document.getElementById('resolution'),
+    exportBtn    : document.getElementById('export-btn')
 };
 
 /* =========================================================
- * 🌟 字体项归一化工具（显示名 label + 真实字体名 value）
+ * 通用异步超时工具
+ * ========================================================= */
+function withTimeout(promise, ms, timeoutMessage = 'TIMEOUT') {
+    let timer = null;
+    const timeoutPromise = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+            const err = new Error(timeoutMessage);
+            err.code = 'TIMEOUT';
+            reject(err);
+        }, ms);
+    });
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        if (timer) clearTimeout(timer);
+    });
+}
+
+async function fetchWithTimeout(url, options = {}, ms = NETWORK_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+        const res = await fetch(url, { ...options, signal: controller.signal });
+        return res;
+    } catch (err) {
+        if (err && err.name === 'AbortError') {
+            const timeoutErr = new Error('FETCH_TIMEOUT');
+            timeoutErr.code = 'TIMEOUT';
+            throw timeoutErr;
+        }
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
+/* =========================================================
+ * 🌟 字体项归一化 & 本地字体检测
  * ========================================================= */
 function normalizeFontItem(item) {
     if (typeof item === 'string') {
@@ -584,32 +640,63 @@ function getNormalizedFonts() {
         .filter(f => f.value !== '');
 }
 
+/**
+ * 🌟 检测本地系统是否已安装指定 font-family（在加载任何在线 @font-face 前调用）
+ */
+const GENERIC_FONT_FAMILIES = new Set([
+    'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-sans-serif', 'ui-serif'
+]);
+
+const fontDetectCanvas = document.createElement('canvas');
+const fontDetectCtx = fontDetectCanvas.getContext('2d');
+
+function isLocalFontAvailable(fontName) {
+    const cleanName = String(fontName || '').trim().replace(/^["']|["']$/g, '');
+    if (!cleanName) return false;
+    if (GENERIC_FONT_FAMILIES.has(cleanName.toLowerCase())) return true;
+    if (localFontCache.has(cleanName)) return localFontCache.get(cleanName);
+
+    if (!fontDetectCtx) return false;
+
+    const testText = '乘风破浪永字八法1234567890abcdefghijklmnopqrstuvwxyzWMi@#%&';
+    const baseFamilies = ['monospace', 'sans-serif', 'serif'];
+    const baseWidths = {};
+
+    for (const base of baseFamilies) {
+        fontDetectCtx.font = `72px ${base}`;
+        baseWidths[base] = fontDetectCtx.measureText(testText).width;
+    }
+
+    const detected = baseFamilies.some(base => {
+        fontDetectCtx.font = `72px "${cleanName}", ${base}`;
+        return Math.abs(fontDetectCtx.measureText(testText).width - baseWidths[base]) > 0.1;
+    });
+
+    localFontCache.set(cleanName, detected);
+    return detected;
+}
+
 /* =========================================================
  * 工具：字数 / 全半角
  * ========================================================= */
-
-/** 统计字数：忽略换行符 */
 function countTextChars(text) {
     return String(text).replace(/[\r\n]/g, '').length;
 }
 
-/** 字符视觉宽度因子：半角 0.5，全角 1 */
 function charWidthFactor(ch) {
     if (!ch) return 1;
     const code = ch.codePointAt(0);
-    if (code === 0x00A0) return 0.5;                    // 不间断空格
-    if (code <= 0x7F) return 0.5;                       // 半角 ASCII（含空格）
-    if (code >= 0xFF61 && code <= 0xFFDC) return 0.5;   // 半角片假名等
-    if (code >= 0xFFE8 && code <= 0xFFEE) return 0.5;   // 半角标点
+    if (code === 0x00A0) return 0.5;
+    if (code <= 0x7F) return 0.5;
+    if (code >= 0xFF61 && code <= 0xFFDC) return 0.5;
+    if (code >= 0xFFE8 && code <= 0xFFEE) return 0.5;
     return 1;
 }
 
-/** 是否空白字符（占位但不绘制格子/文字） */
 function isBlankChar(ch) {
     return ch === ' ' || ch === ' ' || ch === '\t' || ch === '\u00A0';
 }
 
-/** 半角 → 全角 */
 function toFullwidth(str) {
     let out = '';
     for (const ch of String(str)) {
@@ -621,7 +708,6 @@ function toFullwidth(str) {
     return out;
 }
 
-/** 全角 → 半角 */
 function toHalfwidth(str) {
     let out = '';
     for (const ch of String(str)) {
@@ -633,7 +719,6 @@ function toHalfwidth(str) {
     return out;
 }
 
-/** 🌟 自动把输入框内容中的半角字符转为全角，并保留光标位置 */
 function applyAutoFullwidth() {
     const text = els.textInput.value;
     const converted = toFullwidth(text);
@@ -641,12 +726,10 @@ function applyAutoFullwidth() {
         const start = els.textInput.selectionStart;
         const end   = els.textInput.selectionEnd;
         els.textInput.value = converted;
-        // 全角/半角是 1:1 替换，长度不变，光标位置可直接还原
         els.textInput.setSelectionRange(start, end);
     }
 }
 
-/** 🌟 按钮文字随自动全角开关切换 */
 function updateConvertBtn() {
     if (autoFullwidth) {
         els.convertBtn.textContent = '转半角';
@@ -660,8 +743,6 @@ function updateConvertBtn() {
 /* =========================================================
  * 按字数配置：解析与合并
  * ========================================================= */
-
-/** 区间 key 归一化 */
 function normalizeRangeKey(key) {
     return String(key)
         .replace(/\s+/g, '')
@@ -669,7 +750,6 @@ function normalizeRangeKey(key) {
         .replace(/＋/g, '+');
 }
 
-/** 判断某个区间 key 是否匹配该字数 */
 function matchRangeKey(key, count) {
     const k = normalizeRangeKey(key);
     let m;
@@ -679,7 +759,6 @@ function matchRangeKey(key, count) {
     return false;
 }
 
-/** 找出该字数命中的配置 key（精确匹配优先，其次区间匹配） */
 function resolvePresetKey(count) {
     const keys = Object.keys(GRID_PRESETS);
     if (Object.prototype.hasOwnProperty.call(GRID_PRESETS, String(count))) {
@@ -693,7 +772,6 @@ function resolvePresetKey(count) {
     return null;
 }
 
-/** 取某个 key 下的所有方案（统一返回数组） */
 function getVariantsForKey(key) {
     if (key === null) return [];
     if (!Object.prototype.hasOwnProperty.call(GRID_PRESETS, key)) return [];
@@ -702,7 +780,6 @@ function getVariantsForKey(key) {
     return Array.isArray(v) ? v : [v];
 }
 
-/** 取当前 key 下应使用的方案索引（带记忆 + 越界保护） */
 function getVariantIndex(key, count) {
     if (count <= 1) return 0;
     const saved = variantSelections.get(key);
@@ -710,11 +787,6 @@ function getVariantIndex(key, count) {
     return 0;
 }
 
-/**
- * 🌟 合并参数
- *   - 田字格模式：preset（田字格配置） > freeConfig（自由配置兜底） > FALLBACK_DEFAULTS
- *   - 自由模式  ：freeConfig（自由配置） > FALLBACK_DEFAULTS
- */
 function mergeParams(preset) {
     const out = {};
     for (let i = 0; i < PARAM_KEYS.length; i++) {
@@ -727,7 +799,6 @@ function mergeParams(preset) {
     return out;
 }
 
-/** 根据字数方案计算每行字数（显式 charsPerLine 优先，其次 rows 自动推算） */
 function resolveCharsPerLine(text, preset) {
     if (!preset) return 0;
 
@@ -747,7 +818,6 @@ function resolveCharsPerLine(text, preset) {
     return 0;
 }
 
-/** 把合并后的参数写回界面控件 */
 function applyParamsToUI(p) {
     els.textColor.value    = p.textColor;
     els.lineColor.value    = p.lineColor;
@@ -772,6 +842,7 @@ function applyParamsToUI(p) {
         const exists = Array.from(els.fontFamily.options).some(o => o.value === targetFontValue);
         if (exists) {
             els.fontFamily.value = targetFontValue;
+            updateFontStatusTip();
             ensureOnlineFontLoaded(targetFontValue, els.textInput.value).then(() => {
                 scheduleRender();
             });
@@ -781,7 +852,6 @@ function applyParamsToUI(p) {
     updatePresetActive(els.fontSize.value);
 }
 
-/** 更新"字数配置命中"提示 */
 function updatePresetInfo(count, key, preset, idx, total, isFree) {
     const box = els.presetInfo;
     if (!box) return;
@@ -804,7 +874,6 @@ function updatePresetInfo(count, key, preset, idx, total, isFree) {
     box.textContent = `共 ${count} 字 · 命中配置「${key}」· ${name}${idxLabel}`;
 }
 
-/** 🌟 同字数多方案切换按钮 */
 function buildVariantButtons(variants, currentIdx, key) {
     const box = els.variantBar;
     if (!box) return;
@@ -819,7 +888,7 @@ function buildVariantButtons(variants, currentIdx, key) {
         btn.textContent = v.name || `方案 ${i + 1}`;
         btn.addEventListener('click', () => {
             variantSelections.set(key, i);
-            lastAppliedKey = undefined;   // 强制重新应用
+            lastAppliedKey = undefined;
             syncParamsFromText(true);
             scheduleRender();
         });
@@ -827,18 +896,12 @@ function buildVariantButtons(variants, currentIdx, key) {
     });
 }
 
-/**
- * 根据当前文字内容与模式解析配置。
- * - 命中方案变化（或 force）时把参数写回界面
- * - charsPerLine 每次都刷新
- */
 function syncParamsFromText(force) {
     const text  = els.textInput.value;
     const count = countTextChars(text);
 
-    /* ---------- 自由模式：完全使用兜底参数 ---------- */
     if (currentMode === 'free') {
-        currentCharsPerLine = 0;                 // 换行完全由回车决定
+        currentCharsPerLine = 0;
         const merged = mergeParams(null);
 
         if (force || lastAppliedKey !== 'free') {
@@ -851,7 +914,6 @@ function syncParamsFromText(force) {
         return merged;
     }
 
-    /* ---------- 田字格模式 ---------- */
     const key      = resolvePresetKey(count);
     const variants = getVariantsForKey(key);
     const idx      = getVariantIndex(key, variants.length);
@@ -872,7 +934,6 @@ function syncParamsFromText(force) {
     return merged;
 }
 
-/** 🌟 切换配置模式 */
 function setMode(mode) {
     if (mode !== 'grid' && mode !== 'free') return;
     if (currentMode === mode) return;
@@ -888,11 +949,6 @@ function setMode(mode) {
     scheduleRender();
 }
 
-/**
- * 自动换行：
- *   1) 先按回车分行
- *   2) charsPerLine > 0 时，再对每一行按每行字数切分
- */
 function layoutLines(text, charsPerLine) {
     const lines = String(text).split(/\r?\n/);
     const cpl = Math.floor(Number(charsPerLine)) || 0;
@@ -910,12 +966,66 @@ function layoutLines(text, charsPerLine) {
 }
 
 /* =========================================================
- * 字体 CSS 异步加载与按需加载
+ * 🌟 字体状态文案 & 异步加载（本地优先 + 超时 + 失败提示）
  * ========================================================= */
+function markFontOptions() {
+    if (!els.fontFamily) return;
+    Array.from(els.fontFamily.options).forEach(opt => {
+        const fontValue = opt.value;
+        const baseLabel = opt.dataset.label || opt.textContent.replace(/（[^（）]+）$/, '');
+        const status = fontStatus.get(fontValue);
+
+        if (status === 'local') {
+            opt.textContent = `${baseLabel}（使用本地字体）`;
+        } else if (status === 'loading') {
+            opt.textContent = `${baseLabel}（加载中…）`;
+        } else if (status === 'timeout') {
+            opt.textContent = `${baseLabel}（加载超时）`;
+        } else if (status === 'failed') {
+            opt.textContent = `${baseLabel}（加载失败）`;
+        } else {
+            opt.textContent = baseLabel;
+        }
+    });
+    updateFontStatusTip();
+}
+
+function updateFontStatusTip() {
+    const tip = els.fontStatusTip;
+    if (!tip || !els.fontFamily) return;
+
+    const fontValue = els.fontFamily.value;
+    const status = fontStatus.get(fontValue);
+    tip.className = 'status-tip';
+
+    if (status === 'local') {
+        tip.classList.add('ok');
+        tip.textContent = '✓ 已检测到本地字体，直接使用本地字体（无需联网下载）';
+    } else if (status === 'loading') {
+        tip.classList.add('loading');
+        tip.textContent = `⏳ 正在加载在线字体（超时上限 ${(NETWORK_TIMEOUT_MS / 1000).toFixed(1)} 秒）…`;
+    } else if (status === 'timeout') {
+        tip.classList.add('error');
+        tip.textContent = '⚠ 在线字体加载超时，已自动回退为系统默认字体';
+    } else if (status === 'failed') {
+        tip.classList.add('error');
+        tip.textContent = '⚠ 在线字体加载失败，已自动回退为系统默认字体';
+    } else if (status === 'loaded') {
+        tip.classList.add('ok');
+        tip.textContent = '✓ 在线字体加载完成';
+    } else {
+        tip.textContent = '';
+    }
+}
+
 async function loadFontCSS(main, fallback) {
     const tryLoad = async (url) => {
-        const res = await fetch(url, { method: 'GET', mode: 'cors' });
-        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const res = await fetchWithTimeout(url, { method: 'GET', mode: 'cors' }, NETWORK_TIMEOUT_MS);
+        if (!res.ok) {
+            const err = new Error('HTTP ' + res.status);
+            err.code = 'HTTP_ERROR';
+            throw err;
+        }
 
         const cssText = await res.text();
         const baseUrl = url.replace(/[^/]*\.css(?:\?.*)?$/i, '');
@@ -935,75 +1045,128 @@ async function loadFontCSS(main, fallback) {
 
     try {
         await tryLoad(main);
-        return true;
+        return { ok: true, reason: 'loaded' };
     } catch (e) {
-        console.warn('主字体加载失败:', main, e);
+        console.warn('主字体 CSS 加载异常:', main, e);
         if (fallback) {
             try {
                 await tryLoad(fallback);
-                return true;
+                return { ok: true, reason: 'loaded' };
             } catch (e2) {
-                console.error('备用字体加载失败:', fallback, e2);
-                return false;
+                console.error('备用字体 CSS 加载异常:', fallback, e2);
+                const isTimeout = (e && e.code === 'TIMEOUT') || (e2 && e2.code === 'TIMEOUT');
+                return { ok: false, reason: isTimeout ? 'timeout' : 'failed' };
             }
         }
-        return false;
+        return { ok: false, reason: (e && e.code === 'TIMEOUT') ? 'timeout' : 'failed' };
     }
 }
 
 /**
- * 🌟 按需加载单个在线字体，并传入样本文字以触发 unicode-range 分片请求
+ * 🌟 按需加载单个字体：
+ *   1. 先检测本地是否存在；存在则直接标记 'local' 并跳过所有网络下载
+ *   2. 本地不存在时，拉取在线 CSS 并带超时等待字体文件就绪
  */
 async function ensureOnlineFontLoaded(fontValue, sampleText = '') {
     if (!fontValue) return true;
+
+    // 1. 优先检查本地是否已有该字体
+    if (fontStatus.get(fontValue) === 'local' || isLocalFontAvailable(fontValue)) {
+        fontStatus.set(fontValue, 'local');
+        markFontOptions();
+        return true;
+    }
 
     const list = CONFIG.onlineFonts || [];
     const entry = list.find(f => (f.value || f.name) === fontValue);
     const chars = String(sampleText || (els.textInput ? els.textInput.value : '') || '').replace(/[\r\n]/g, '');
 
     if (!entry) {
-        if (document.fonts) {
-            try {
-                await (chars
-                    ? document.fonts.load(`16px "${fontValue}"`, chars)
-                    : document.fonts.load(`16px "${fontValue}"`));
-            } catch (_) {}
+        // 未配置在线地址且本地未检出，标记为不可用/回退，避免盲等
+        if (!fontStatus.has(fontValue)) {
+            fontStatus.set(fontValue, 'failed');
+            markFontOptions();
         }
-        return true;
+        return false;
+    }
+
+    // 2. 若之前已超时或失败，不再阻塞，直接返回
+    const prevStatus = fontStatus.get(fontValue);
+    if (prevStatus === 'timeout' || prevStatus === 'failed') {
+        markFontOptions();
+        return false;
     }
 
     if (!fontLoadPromises.has(fontValue)) {
+        fontStatus.set(fontValue, 'loading');
+        markFontOptions();
+
         const promise = (async () => {
-            const ok = await loadFontCSS(entry.mainCss, entry.fallbackCss);
-            fontStatus.set(fontValue, ok);
-            return ok;
+            const cssRes = await loadFontCSS(entry.mainCss, entry.fallbackCss);
+            if (!cssRes.ok) {
+                fontStatus.set(fontValue, cssRes.reason);
+                return false;
+            }
+
+            if (document.fonts) {
+                try {
+                    const loadTask = chars
+                        ? document.fonts.load(`16px "${fontValue}"`, chars)
+                        : document.fonts.load(`16px "${fontValue}"`);
+                    const loadedFaces = await withTimeout(loadTask, NETWORK_TIMEOUT_MS, 'FONT_FACE_TIMEOUT');
+                    if (Array.isArray(loadedFaces) && loadedFaces.length === 0 && chars.length > 0) {
+                        fontStatus.set(fontValue, 'failed');
+                        return false;
+                    }
+                } catch (err) {
+                    console.warn('字体文件加载超时或失败:', fontValue, err);
+                    fontStatus.set(fontValue, (err && err.code === 'TIMEOUT') ? 'timeout' : 'failed');
+                    return false;
+                }
+            }
+
+            fontStatus.set(fontValue, 'loaded');
+            return true;
         })();
+
         fontLoadPromises.set(fontValue, promise);
     }
 
-    const cssOk = await fontLoadPromises.get(fontValue);
+    const ok = await fontLoadPromises.get(fontValue);
 
-    if (cssOk && document.fonts) {
+    // 若 CSS 已加载且本次新增了未加载分片的字符，带超时补拉对应字符分片
+    if (ok && document.fonts && chars) {
         try {
-            await (chars
-                ? document.fonts.load(`16px "${fontValue}"`, chars)
-                : document.fonts.load(`16px "${fontValue}"`));
-            if (document.fonts.ready) {
-                await document.fonts.ready;
-            }
-        } catch (_) {}
+            await withTimeout(
+                document.fonts.load(`16px "${fontValue}"`, chars),
+                NETWORK_TIMEOUT_MS,
+                'FONT_SUBSET_TIMEOUT'
+            );
+        } catch (err) {
+            console.warn('字体字符分片补充加载超时:', fontValue, err);
+        }
     }
 
     markFontOptions();
-    return cssOk;
+    return ok;
 }
 
 /**
- * 🌟 启动时仅加载前 3 个在线字体，其余在选中时再加载
+ * 🌟 启动时：
+ *   - 先扫描所有配置的字体，标记本地已安装的字体
+ *   - 再仅对“本地没有”的前 3 个在线字体发起网络预加载
  */
 async function loadInitialOnlineFonts() {
+    getNormalizedFonts().forEach(item => {
+        if (isLocalFontAvailable(item.value)) {
+            fontStatus.set(item.value, 'local');
+        }
+    });
+    markFontOptions();
+
     const list = CONFIG.onlineFonts || [];
-    const topThree = list.slice(0, INITIAL_ONLINE_FONT_LIMIT);
+    const needRemote = list.filter(f => !isLocalFontAvailable(f.value || f.name));
+    const topThree = needRemote.slice(0, INITIAL_ONLINE_FONT_LIMIT);
     const currentText = els.textInput ? els.textInput.value : '';
 
     await Promise.all(topThree.map(async (f) => {
@@ -1012,22 +1175,9 @@ async function loadInitialOnlineFonts() {
     }));
 
     const activeFont = els.fontFamily ? els.fontFamily.value : '';
-    if (activeFont && !topThree.some(f => (f.value || f.name) === activeFont)) {
+    if (activeFont && !isLocalFontAvailable(activeFont)) {
         await ensureOnlineFontLoaded(activeFont, currentText);
     }
-}
-
-function markFontOptions() {
-    if (!els.fontFamily) return;
-    Array.from(els.fontFamily.options).forEach(opt => {
-        const fontValue = opt.value;
-        const baseLabel = opt.dataset.label || opt.textContent.replace(/（加载失败）$/, '');
-        if (fontStatus.get(fontValue) === false) {
-            opt.textContent = `${baseLabel}（加载失败）`;
-        } else {
-            opt.textContent = baseLabel;
-        }
-    });
 }
 
 /* =========================================================
@@ -1122,10 +1272,8 @@ function drawScene(ctx, W, H, p) {
     const boxSize  = p.size / p.ratio;
     const lineStep = boxSize + p.lineGap;
 
-    // 分行 + 拆分字符
     const lines = layoutLines(p.text, p.charsPerLine).map(l => Array.from(l));
 
-    // 🌟 逐行宽度（半角字符占 0.5 个格子宽）
     const lineWidths = lines.map(chars => {
         let w = 0;
         for (let i = 0; i < chars.length; i++) {
@@ -1140,7 +1288,6 @@ function drawScene(ctx, W, H, p) {
         ? lines.length * boxSize + (lines.length - 1) * p.lineGap
         : 0;
 
-    // 整体上下居中调节
     const startY = (H - totalH) / 2 + p.blockOffsetY;
 
     const fontStr =
@@ -1151,7 +1298,6 @@ function drawScene(ctx, W, H, p) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // 逐行逐字绘制
     for (let r = 0; r < lines.length; r++) {
         const chars = lines[r];
         if (chars.length === 0) continue;
@@ -1161,17 +1307,15 @@ function drawScene(ctx, W, H, p) {
 
         for (let c = 0; c < chars.length; c++) {
             const ch = chars[c];
-            const cw = boxSize * charWidthFactor(ch);   // 🌟 半角格子只有一半宽
+            const cw = boxSize * charWidthFactor(ch);
 
             if (!isBlankChar(ch)) {
-                // 外框
                 if (p.grid && p.borderWidth > 0) {
                     ctx.strokeStyle = p.lineColor;
                     ctx.lineWidth   = p.borderWidth;
                     ctx.strokeRect(x, y, cw, boxSize);
                 }
 
-                // 内虚线
                 if (p.grid && p.dashWidth > 0 && p.dashDensity > 0) {
                     ctx.save();
                     ctx.strokeStyle = p.lineColor;
@@ -1189,13 +1333,11 @@ function drawScene(ctx, W, H, p) {
                     ctx.restore();
                 }
 
-                // 文字
                 const tx = x + cw / 2;
                 const ty = y + boxSize / 2 + p.yOffset;
                 ctx.fillStyle = p.textColor;
                 ctx.fillText(ch, tx, ty);
 
-                // 删除线
                 if (p.strike) {
                     const tw = Math.min(ctx.measureText(ch).width, cw);
                     const lh = Math.max(1, p.size * 0.06);
@@ -1239,10 +1381,65 @@ function scheduleRender() {
 }
 
 /* =========================================================
- * 背景图
+ * 🌟 背景图加载（增加超时控制 + 失败/超时提示）
  * ========================================================= */
+function updateBgStatusTip(status, text) {
+    bgLoadState = { status, message: text || '' };
+    const tip = els.bgStatusTip;
+    if (!tip) return;
+
+    tip.className = 'status-tip';
+    if (!text) {
+        tip.textContent = '';
+        return;
+    }
+    if (status === 'loading') tip.classList.add('loading');
+    else if (status === 'error' || status === 'timeout') tip.classList.add('error');
+    else if (status === 'loaded') tip.classList.add('ok');
+
+    tip.textContent = text;
+}
+
 function setBackground(url) {
+    const seq = ++bgLoadSeq;
+    if (bgLoadTimer) {
+        clearTimeout(bgLoadTimer);
+        bgLoadTimer = null;
+    }
+
+    if (!url) {
+        updateBgStatusTip('idle', '');
+        return;
+    }
+
+    const isDataUrl = url.startsWith('data:');
+    if (!isDataUrl) {
+        updateBgStatusTip('loading', `⏳ 正在加载背景图（超时上限 ${(NETWORK_TIMEOUT_MS / 1000).toFixed(1)} 秒）…`);
+    } else {
+        updateBgStatusTip('loading', '⏳ 正在读取本地背景图…');
+    }
+
+    // 超时保护：超时后立即放弃加载并提示用户
+    bgLoadTimer = setTimeout(() => {
+        if (seq !== bgLoadSeq) return;
+        console.warn('背景图加载超时:', url);
+        els.bgImg.onload = null;
+        els.bgImg.onerror = null;
+        els.bgImg.removeAttribute('src');
+
+        updateBgStatusTip('timeout', '⚠ 背景图加载超时，已使用默认底色（可点击缩略图重试或上传本地图片）');
+        updateCanvasSize();
+        fitStage();
+        render();
+    }, NETWORK_TIMEOUT_MS);
+
     els.bgImg.onload = () => {
+        if (seq !== bgLoadSeq) return;
+        if (bgLoadTimer) {
+            clearTimeout(bgLoadTimer);
+            bgLoadTimer = null;
+        }
+
         const natW = els.bgImg.naturalWidth;
         const natH = els.bgImg.naturalHeight;
         if (!natW || !natH) return;
@@ -1250,14 +1447,24 @@ function setBackground(url) {
         logicalW = CONFIG.logicalWidth || 1067;
         logicalH = Math.max(1, Math.round(logicalW * (natH / natW)));
 
+        updateBgStatusTip('loaded', isDataUrl ? '✓ 本地背景图已应用' : '');
         updateCanvasSize();
         fitStage();
         render();
     };
 
     els.bgImg.onerror = () => {
+        if (seq !== bgLoadSeq) return;
+        if (bgLoadTimer) {
+            clearTimeout(bgLoadTimer);
+            bgLoadTimer = null;
+        }
+
         console.warn('背景图加载失败:', url);
+        els.bgImg.removeAttribute('src');
         els.overflowTip.style.display = 'none';
+
+        updateBgStatusTip('error', '⚠ 背景图加载失败，已使用默认底色');
         updateCanvasSize();
         fitStage();
         render();
@@ -1301,7 +1508,8 @@ async function exportImage() {
     if (!logicalW || !logicalH) return;
 
     if (!els.bgImg.complete || els.bgImg.naturalWidth === 0) {
-        alert('提示：背景图片尚未加载完成或加载失败，导出的图片将使用默认底色。');
+        const reason = bgLoadState.message || '背景图片尚未加载完成或加载失败';
+        alert(`提示：${reason}，导出的图片将使用默认底色。`);
     }
 
     const originalText = els.exportBtn.textContent;
@@ -1362,7 +1570,6 @@ async function exportImage() {
  * 事件绑定
  * ========================================================= */
 function bindEvents() {
-    /* ---------- 🌟 文字输入：自动转全角（含 IME 保护） ---------- */
     let isComposing = false;
 
     const handleTextUpdate = () => {
@@ -1396,9 +1603,10 @@ function bindEvents() {
         }
     });
 
-    /* ---------- 🌟 字体下拉框切换：选中后按需加载在线字体 ---------- */
+    /* ---------- 🌟 字体下拉框切换：本地优先，否则按需带超时加载 ---------- */
     els.fontFamily.addEventListener('change', async () => {
         const selectedFont = els.fontFamily.value;
+        updateFontStatusTip();
         scheduleRender();
         await ensureOnlineFontLoaded(selectedFont, els.textInput.value);
         scheduleRender();
@@ -1420,7 +1628,7 @@ function bindEvents() {
         });
     });
 
-    /* ---------- 🌟 转全角 / 转半角 按钮 ---------- */
+    /* ---------- 转全角 / 转半角 按钮 ---------- */
     els.convertBtn.addEventListener('click', () => {
         if (autoFullwidth) {
             els.textInput.value = toHalfwidth(els.textInput.value);
@@ -1439,11 +1647,14 @@ function bindEvents() {
         setMode(btn.dataset.mode);
     });
 
-    // 上传背景
+    // 上传本地背景
     els.bgUpload.addEventListener('change', (e) => {
         const file = e.target.files && e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
+        reader.onerror = () => {
+            updateBgStatusTip('error', '⚠ 本地背景图片读取失败，请重新选择');
+        };
         reader.onload = (ev) => {
             setBackground(ev.target.result);
             document.querySelectorAll('.image-thumb')
@@ -1467,16 +1678,22 @@ function bindEvents() {
 async function initApp() {
     document.body.className = `layout-${CONFIG.panelPosition || 'right'}`;
 
-    // 1. 字体下拉框（textContent 显示 label，value 存真实 font-family）
+    // 1. 先检测本地字体并填充下拉框（本地已有的直接标注“使用本地字体”）
     const defaultFontValue = normalizeFontItem(CONFIG.defaultFont).value;
     getNormalizedFonts().forEach(fontItem => {
         const opt = document.createElement('option');
         opt.value = fontItem.value;
-        opt.textContent = fontItem.label;
         opt.dataset.label = fontItem.label;
+        if (isLocalFontAvailable(fontItem.value)) {
+            fontStatus.set(fontItem.value, 'local');
+            opt.textContent = `${fontItem.label}（使用本地字体）`;
+        } else {
+            opt.textContent = fontItem.label;
+        }
         if (fontItem.value === defaultFontValue) opt.selected = true;
         els.fontFamily.appendChild(opt);
     });
+    updateFontStatusTip();
 
     // 2. 字号快捷按钮
     buildPresetButtons();
@@ -1512,6 +1729,11 @@ async function initApp() {
             img.alt = '';
             if (url === defaultBg) img.classList.add('active');
 
+            img.onerror = () => {
+                img.title = '预设背景图加载失败';
+                img.style.opacity = '0.35';
+            };
+
             img.onclick = () => {
                 document.querySelectorAll('.image-thumb')
                     .forEach(el => el.classList.remove('active'));
@@ -1523,10 +1745,10 @@ async function initApp() {
         });
     }
 
-    // 8. 背景图
+    // 8. 背景图（带超时与失败提示）
     if (defaultBg) setBackground(defaultBg);
 
-    // 9. 在线字体（仅预加载前 3 个，其余选中后加载）
+    // 9. 在线字体（跳过本地已有字体，仅预加载前 3 个缺失的在线字体）
     loadInitialOnlineFonts().then(() => {
         markFontOptions();
         render();
