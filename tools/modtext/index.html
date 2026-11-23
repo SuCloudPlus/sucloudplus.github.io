@@ -123,6 +123,37 @@ body.layout-bottom .panel-section { flex: 1; min-width: 250px; }
     border-bottom: 1px solid #ddd;
     padding-bottom: 5px;
     margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.section-toggle-btn {
+    padding: 1px 6px;
+    font-size: 11px;
+    line-height: 1.4;
+    background: #eef3f8;
+    color: #666;
+    border: 1px solid #d5dfe9;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.section-toggle-btn:hover {
+    background: #e1eaf3;
+    color: #333;
+}
+
+.panel-section.collapsed {
+    gap: 0;
+    padding-bottom: 8px;
+}
+.panel-section.collapsed > :not(h3) {
+    display: none !important;
+}
+.panel-section.collapsed h3 {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
 }
 
 .form-group { display: flex; flex-direction: column; gap: 4px; }
@@ -154,6 +185,10 @@ select, input[type="number"] {
     padding: 5px;
     border: 1px solid #ccc;
     border-radius: 4px;
+}
+
+select#font-family option {
+    font-family: inherit;
 }
 
 .checkbox-group {
@@ -242,20 +277,26 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 .image-thumb:hover { border-color: #5A9BE0; }
 .image-thumb.active { border-color: #2ECC71; }
 
-/* 状态/命中提示 */
+/* 状态/命中提示：固定单行高度，避免页面行数变动，统一灰色显示 */
 .preset-info,
 .status-tip {
     font-size: 11px;
     color: #8a94a0;
-    line-height: 1.5;
-    padding: 1px 2px 0;
-    min-height: 16px;
+    font-weight: normal;
+    line-height: 18px;
+    height: 18px;
+    padding: 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.preset-info.hit,
-.status-tip.ok { color: #27AE60; font-weight: bold; }
-.status-tip.loading { color: #5A9BE0; }
-.status-tip.error { color: #E74C3C; font-weight: bold; }
-.status-tip:empty { display: none; }
+.preset-info.hit { color: #27AE60; font-weight: bold; }
+.status-tip.ok,
+.status-tip.loading,
+.status-tip.error {
+    color: #8a94a0;
+    font-weight: normal;
+}
 
 /* ============================================================
  * 🌟 模式切换 + 同字数多方案切换（同一行，高度固定，避免跳动）
@@ -345,8 +386,8 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
 
 <!-- 控制面板 -->
 <div class="control-panel">
-    <div class="panel-section">
-        <h3>1. 内容与背景</h3>
+    <div class="panel-section" id="section-content">
+        <h3><span>1. 内容与背景</span><button type="button" class="section-toggle-btn" data-target="section-content" onclick="const sec=document.getElementById('section-content');const c=sec.classList.toggle('collapsed');this.textContent=c?'展开':'收起';">收起</button></h3>
         <div class="form-group">
             <label for="text-input">输入文字 <button id="convert-width" class="small" type="button">转全角</button></label>
             <textarea id="text-input">乘风破浪</textarea>
@@ -371,8 +412,8 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
         </div>
     </div>
 
-    <div class="panel-section">
-        <h3>2. 字体与样式</h3>
+    <div class="panel-section" id="section-style">
+        <h3><span>2. 字体与样式</span><button type="button" class="section-toggle-btn" data-target="section-style" onclick="const sec=document.getElementById('section-style');const c=sec.classList.toggle('collapsed');this.textContent=c?'展开':'收起';">收起</button></h3>
         <div class="form-group">
             <label for="font-family">字体</label>
             <select id="font-family"></select>
@@ -396,8 +437,8 @@ button.small { padding: 2px 6px; font-size: 11px; background: #7BAFE8; }
         </div>
     </div>
 
-    <div class="panel-section">
-        <h3>3. 参数调节</h3>
+    <div class="panel-section" id="section-params">
+        <h3><span>3. 参数调节</span><button type="button" class="section-toggle-btn" data-target="section-params" onclick="const sec=document.getElementById('section-params');const c=sec.classList.toggle('collapsed');this.textContent=c?'展开':'收起';">收起</button></h3>
 
         <div class="form-group">
             <div class="field-label">字号快速选择</div>
