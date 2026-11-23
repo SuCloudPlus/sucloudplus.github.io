@@ -1302,6 +1302,11 @@ import { FontManager } from './src/fonts.js';
     if (els.lightbox.hidden) return;
     if (e.key === 'Escape') {
       closeLightbox();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (lightboxPageIndex !== null && !busy) {
+        exportOnePage(lightboxPageIndex);
+      }
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
       stepLightbox(-1);
