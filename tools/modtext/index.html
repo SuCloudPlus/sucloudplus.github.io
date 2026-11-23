@@ -473,7 +473,7 @@ const GRID_PRESETS = (CONFIG.gridConfig && CONFIG.gridConfig.lengthPresets) || {
 const PREVIEW_DPR    = Math.min(2, window.devicePixelRatio || 1);
 const MAX_CANVAS_AREA = 16000000;          // 约 16MP
 const FONT_SIZE_PRESETS = [70, 80, 90, 100, 110, 120, 130, 140, 150];
-const INITIAL_ONLINE_FONT_LIMIT = 3;       // 🌟 启动时最多预加载前 3 个非本地的在线字体
+const INITIAL_ONLINE_FONT_LIMIT = 3;       // 🌟 启动时最多预加载前 3 个本地不存在的在线字体
 const NETWORK_TIMEOUT_MS = Number(CONFIG.networkTimeout) > 0 ? Number(CONFIG.networkTimeout) : 5000;
 
 /** 🌟 自动全角开关（默认开启） */
@@ -503,7 +503,7 @@ let previewCtx = null;
 let rafPending = false;
 
 /**
- * 字体状态记录：真实 font-family (value) ->
+ * 字体加载状态记录：真实 font-family (value) ->
  * 'local' | 'loading' | 'loaded' | 'timeout' | 'failed'
  */
 const fontStatus = new Map();
@@ -640,9 +640,6 @@ function getNormalizedFonts() {
         .filter(f => f.value !== '');
 }
 
-/**
- * 🌟 检测本地系统是否已安装指定 font-family（在加载任何在线 @font-face 前调用）
- */
 const GENERIC_FONT_FAMILIES = new Set([
     'serif', 'sans-serif', 'monospace', 'cursive', 'fantasy', 'system-ui', 'ui-sans-serif', 'ui-serif'
 ]);
@@ -650,6 +647,9 @@ const GENERIC_FONT_FAMILIES = new Set([
 const fontDetectCanvas = document.createElement('canvas');
 const fontDetectCtx = fontDetectCanvas.getContext('2d');
 
+/**
+ * 🌟 检测本地系统是否已安装指定 font-family（在加载任何在线 @font-face 前调用）
+ */
 function isLocalFontAvailable(fontName) {
     const cleanName = String(fontName || '').trim().replace(/^["']|["']$/g, '');
     if (!cleanName) return false;
@@ -1082,7 +1082,6 @@ async function ensureOnlineFontLoaded(fontValue, sampleText = '') {
     const chars = String(sampleText || (els.textInput ? els.textInput.value : '') || '').replace(/[\r\n]/g, '');
 
     if (!entry) {
-        // 未配置在线地址且本地未检出，标记为不可用/回退，避免盲等
         if (!fontStatus.has(fontValue)) {
             fontStatus.set(fontValue, 'failed');
             markFontOptions();
@@ -1419,7 +1418,6 @@ function setBackground(url) {
         updateBgStatusTip('loading', '⏳ 正在读取本地背景图…');
     }
 
-    // 超时保护：超时后立即放弃加载并提示用户
     bgLoadTimer = setTimeout(() => {
         if (seq !== bgLoadSeq) return;
         console.warn('背景图加载超时:', url);
