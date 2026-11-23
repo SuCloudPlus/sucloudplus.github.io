@@ -13,6 +13,9 @@ window.APP_CONFIG = {
     // 面板位置：'top' | 'bottom' | 'left' | 'right'
     panelPosition: "right",
 
+    // 网络资源（字体 CSS、字体文件、背景图）加载超时时间（毫秒）
+    networkTimeout: 5000,
+
     // 默认背景图路径（留空则显示纯色）
     bgImageUrl: "src/bg01.jpg",
 
@@ -45,7 +48,7 @@ window.APP_CONFIG = {
         { label: "无衬线字体", value: "sans-serif" }
     ],
 
-    // 在线字体：默认只预加载前 3 项，其余在选中该字体时按需加载
+    // 在线字体：优先检测本地是否已安装该字体；若本地没有，默认只预加载前 3 项，其余在选中该字体时按需加载
     onlineFonts: [
         {
             name: "FZZhengHeiS-DB-GB",
